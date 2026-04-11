@@ -1,0 +1,24 @@
+{
+  "name": "b2b-sales-agents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "inspect:deal": "tsx src/cli/run-deal-inspection.ts",
+    "start:meeting-prep": "tsx src/cli/run-meeting-prep.ts",
+    "start:call-summary": "tsx src/cli/run-call-summary.ts",
+    "start:support-api": "tsx src/api/support-agent.ts",
+    "inspect:halosight-runtime": "tsx src/cli/inspect-halosight-runtime.ts",
+    "create:gmail-draft": "tsx src/cli/create-gmail-draft.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3"
+  }
+}

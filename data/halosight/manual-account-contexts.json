@@ -1,0 +1,86 @@
+{
+  "accounts": [
+    {
+      "match": {
+        "email_domains": ["halosight.com"],
+        "meeting_title_keywords": ["INTERNAL", "Demand Gen", "Halosight"]
+      },
+      "account": {
+        "accountId": "internal-halosight",
+        "accountName": "Halosight",
+        "website": "https://halosight.com",
+        "industry": "Revenue intelligence software",
+        "employees": 25,
+        "currentOpportunity": {
+          "opportunityId": "internal-planning",
+          "stage": "Internal planning",
+          "amount": 0,
+          "closeDate": "2026-06-30"
+        }
+      },
+      "primaryContact": {
+        "contactId": "tmott-halosight",
+        "fullName": "Troy Mott",
+        "title": "Growth / GTM",
+        "email": "tmott@halosight.com"
+      },
+      "recentActivity": [
+        "Demand generation planning is active for current GTM priorities.",
+        "The team is aligning messaging, targeting, and workflow decisions across internal stakeholders.",
+        "The operating goal is to improve execution consistency and visibility."
+      ],
+      "apolloSignals": [
+        "Internal planning cadence is focused on campaign targets and sales workflow alignment.",
+        "The team is actively refining positioning and execution systems.",
+        "Cross-functional coordination is needed between demand gen, sales, and operations."
+      ],
+      "messagingAngles": [
+        "Tie data capture and execution visibility to cleaner GTM decision-making.",
+        "Frame structured interaction data as a way to reduce blind spots across the funnel.",
+        "Connect workflow discipline to better forecasting confidence and operating leverage."
+      ]
+    },
+    {
+      "match": {
+        "email_domains": ["acme.example"],
+        "contact_emails": ["alex@acme.com"],
+        "meeting_title_keywords": ["Acme", "Discovery"]
+      },
+      "account": {
+        "accountId": "001-acme",
+        "accountName": "Acme Corp",
+        "website": "https://acme.example",
+        "industry": "Manufacturing",
+        "employees": 420,
+        "currentOpportunity": {
+          "opportunityId": "006-acme",
+          "stage": "Discovery",
+          "amount": 25000,
+          "closeDate": "2026-05-15"
+        }
+      },
+      "primaryContact": {
+        "contactId": "003-acme",
+        "fullName": "Alex Rivera",
+        "title": "Revenue Operations Manager",
+        "email": "alex@acme.com",
+        "linkedinUrl": "https://linkedin.com/in/alex-rivera"
+      },
+      "recentActivity": [
+        "Opened outreach email on March 29.",
+        "Booked discovery call after Apollo sequence step 2.",
+        "Current opportunity is in Discovery with a tentative May 15 close date."
+      ],
+      "apolloSignals": [
+        "Hiring for RevOps and implementation roles.",
+        "Recently viewed reporting and workflow automation pages.",
+        "Contact engages with outbound content about onboarding efficiency."
+      ],
+      "messagingAngles": [
+        "Tie reporting automation to faster executive visibility.",
+        "Position smoother onboarding as a way to reduce rep admin load.",
+        "Lead with implementation support and measurable adoption."
+      ]
+    }
+  ]
+}
