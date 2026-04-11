@@ -1,0 +1,177 @@
+{
+  "icp_sentinel": {
+    "input": {
+      "account_name": "string",
+      "industry": "string",
+      "employee_count": 0,
+      "revenue_band": "string",
+      "crm_system": "string",
+      "sales_team_size": 0,
+      "sales_motion": "string",
+      "field_sales_presence": true,
+      "known_pains": ["string"],
+      "trigger_events": ["string"],
+      "contact_name": "string",
+      "contact_title": "string",
+      "contact_function": "string"
+    },
+    "output": {
+      "account_fit": {
+        "score": 0,
+        "grade": "A|B|C|D",
+        "reasoning": ["string"]
+      },
+      "persona_fit": {
+        "score": 0,
+        "grade": "A|B|C|D",
+        "reasoning": ["string"]
+      },
+      "pain_fit": {
+        "score": 0,
+        "grade": "A|B|C|D",
+        "reasoning": ["string"]
+      },
+      "urgency_signals": ["string"],
+      "disqualification_risks": ["string"],
+      "recommended_motion": "pursue|nurture|deprioritize|disqualify",
+      "recommended_angle": "string"
+    }
+  },
+  "outreach_strategist": {
+    "input": {
+      "account_name": "string",
+      "persona_title": "string",
+      "persona_function": "string",
+      "industry": "string",
+      "pain_hypotheses": ["string"],
+      "trigger_events": ["string"],
+      "fit_grade": "A|B|C|D",
+      "crm_system": "string",
+      "sales_context": "string"
+    },
+    "output": {
+      "primary_angle": "string",
+      "secondary_angle": "string",
+      "email_subject_options": ["string"],
+      "email_opening_lines": ["string"],
+      "linkedin_opening_lines": ["string"],
+      "voicemail_opening": "string",
+      "discovery_hook": "string",
+      "why_this_angle": ["string"]
+    }
+  },
+  "discovery_qualifier": {
+    "input": {
+      "meeting_type": "intro|discovery|follow_up",
+      "persona_title": "string",
+      "account_name": "string",
+      "known_context": ["string"],
+      "prior_pains": ["string"],
+      "transcript_excerpt": "string"
+    },
+    "output": {
+      "confirmed_pains": ["string"],
+      "business_impacts": ["string"],
+      "stakeholders_identified": ["string"],
+      "urgency_indicators": ["string"],
+      "open_questions": ["string"],
+      "qualification_assessment": {
+        "problem_clarity_score": 0,
+        "impact_score": 0,
+        "urgency_score": 0,
+        "stakeholder_score": 0,
+        "overall_status": "qualified|partially_qualified|unqualified"
+      },
+      "recommended_next_step": "string",
+      "recommended_follow_up_questions": ["string"]
+    }
+  },
+  "objection_navigator": {
+    "input": {
+      "objection": "string",
+      "persona_title": "string",
+      "deal_stage": "string",
+      "known_context": ["string"]
+    },
+    "output": {
+      "objection_type": "string",
+      "acknowledgement": "string",
+      "reframe": "string",
+      "supporting_logic": ["string"],
+      "redirect_question": "string",
+      "risk_if_unresolved": "string"
+    }
+  },
+  "deal_progression_analyst": {
+    "input": {
+      "account_name": "string",
+      "meeting_summary": "string",
+      "transcript_excerpt": "string",
+      "attendees": ["string"],
+      "current_stage": "awareness|problem_defined|business_case|solution_fit|decision",
+      "prior_next_step": "string"
+    },
+    "output": {
+      "scores": {
+        "problem_clarity": 0,
+        "business_impact": 0,
+        "stakeholder_alignment": 0,
+        "urgency": 0,
+        "next_step_strength": 0,
+        "deal_momentum": 0
+      },
+      "stage_assessment": {
+        "starting_stage": "awareness|problem_defined|business_case|solution_fit|decision",
+        "ending_stage": "awareness|problem_defined|business_case|solution_fit|decision",
+        "advanced": true
+      },
+      "evidence": {
+        "confirmed": ["string"],
+        "missing": ["string"],
+        "risks": ["string"]
+      },
+      "seller_coaching": {
+        "what_went_well": ["string"],
+        "what_was_weak": ["string"],
+        "required_next_actions": ["string"]
+      }
+    }
+  },
+  "crm_structurer": {
+    "input": {
+      "account_name": "string",
+      "opportunity_name": "string",
+      "meeting_date": "string",
+      "attendees": ["string"],
+      "transcript_excerpt": "string",
+      "meeting_summary": "string",
+      "existing_stage": "string"
+    },
+    "output": {
+      "account_summary": "string",
+      "opportunity_summary": "string",
+      "confirmed_pains": ["string"],
+      "business_impact": ["string"],
+      "key_commitments": [
+        {
+          "owner": "prospect|seller|internal",
+          "commitment": "string",
+          "due_date": "string"
+        }
+      ],
+      "stakeholders": [
+        {
+          "name": "string",
+          "role": "string",
+          "influence": "high|medium|low",
+          "stance": "supportive|neutral|skeptical|unknown"
+        }
+      ],
+      "next_step": "string",
+      "next_step_date": "string",
+      "recommended_stage": "string",
+      "follow_up_email_points": ["string"],
+      "crm_notes_clean": "string"
+    }
+  }
+}

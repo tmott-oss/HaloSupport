@@ -1,0 +1,56 @@
+{
+  "account": [
+    "Account Name",
+    "Industry",
+    "CRM Environment",
+    "Sales Motion Type",
+    "Field Sales Present",
+    "Operational Complexity Notes",
+    "CRM Data Quality Risk",
+    "Visibility Risk",
+    "Coaching Risk",
+    "Forecast Risk"
+  ],
+  "contact": [
+    "Contact Name",
+    "Title",
+    "Function",
+    "Persona Type",
+    "Influence Level",
+    "Buying Role",
+    "Current Stance"
+  ],
+  "opportunity": [
+    "Opportunity Name",
+    "Current Stage",
+    "Recommended Stage",
+    "Primary Pain",
+    "Secondary Pain",
+    "Business Impact Summary",
+    "Urgency Level",
+    "Decision Criteria",
+    "Next Step",
+    "Next Step Date",
+    "Deal Momentum Score",
+    "Call Quality Score",
+    "Objections Logged",
+    "Competitors Mentioned"
+  ],
+  "activity": [
+    "Meeting Date",
+    "Attendees",
+    "Meeting Headline",
+    "TLDR",
+    "Confirmed Issues",
+    "Commitments",
+    "Action Items",
+    "Risks",
+    "Follow-Up Email Summary"
+  ],
+  "writeback_rules": [
+    "Never write inferred statements into confirmed fields.",
+    "Do not dump raw transcript language into CRM.",
+    "Next steps must be concrete and operational.",
+    "Keep summary fields short and scannable."
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "icp_sentinel_output": {
+    "account_fit": {
+      "score": 88,
+      "grade": "A",
+      "reasoning": [
+        "Large distributed sales environment",
+        "Likely dependence on CRM discipline",
+        "Operational complexity suggests visibility challenges"
+      ]
+    },
+    "persona_fit": {
+      "score": 91,
+      "grade": "A",
+      "reasoning": [
+        "VP Sales is a primary economic buyer",
+        "Role is directly tied to forecast confidence and execution"
+      ]
+    },
+    "pain_fit": {
+      "score": 84,
+      "grade": "A",
+      "reasoning": [
+        "Known issues with rep note consistency",
+        "Leadership needs account-level visibility"
+      ]
+    },
+    "urgency_signals": [
+      "Recent operational change",
+      "Need for process consistency"
+    ],
+    "disqualification_risks": [],
+    "recommended_motion": "pursue",
+    "recommended_angle": "CRM visibility and execution consistency"
+  },
+  "deal_progression_output": {
+    "scores": {
+      "problem_clarity": 8,
+      "business_impact": 7,
+      "stakeholder_alignment": 6,
+      "urgency": 5,
+      "next_step_strength": 8,
+      "deal_momentum": 7
+    },
+    "stage_assessment": {
+      "starting_stage": "problem_defined",
+      "ending_stage": "business_case",
+      "advanced": true
+    },
+    "evidence": {
+      "confirmed": [
+        "Prospect does not trust CRM notes to reflect actual account activity",
+        "Leadership lacks visibility into rep execution across accounts"
+      ],
+      "missing": [
+        "Defined timeline for change",
+        "IT and RevOps technical criteria"
+      ],
+      "risks": [
+        "Economic impact not yet fully quantified",
+        "Broader stakeholder map incomplete"
+      ]
+    },
+    "seller_coaching": {
+      "what_went_well": [
+        "Pain was surfaced clearly",
+        "Next step was concrete"
+      ],
+      "what_was_weak": [
+        "Urgency was not fully developed",
+        "Business case remained partially implied"
+      ],
+      "required_next_actions": [
+        "Quantify forecasting and coaching impact",
+        "Bring RevOps or Salesforce stakeholder into next meeting"
+      ]
+    }
+  }
+}

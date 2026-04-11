@@ -1,0 +1,81 @@
+opportunity_name:
+account_name:
+owner:
+current_stage:
+forecast_category:
+close_date:
+close_date_confidence:
+economic_buyer_identified:
+economic_buyer_name:
+economic_buyer_title:
+executive_sponsor_identified:
+executive_sponsor_name:
+executive_sponsor_title:
+champion_identified:
+champion_name:
+champion_title:
+business_challenge_defined:
+business_challenge_summary:
+compelling_event_defined:
+compelling_event_summary:
+competition_identified:
+competition_summary:
+timeline_defined:
+timeline_summary:
+budget_defined:
+budget_summary:
+decision_criteria_defined:
+decision_criteria_summary:
+decision_process_defined:
+decision_process_summary:
+business_value_defined:
+business_value_summary:
+roi_defined:
+roi_summary:
+implementation_scope_defined:
+implementation_scope_summary:
+political_influence_map_complete:
+political_influence_map_summary:
+solution_criteria_defined:
+halosight_differentiation_defined:
+halosight_differentiation_summary:
+mutual_close_plan_exists:
+mutual_close_plan_summary:
+verbal_selection_received:
+pricing_proposal_created:
+pricing_agreement_reached:
+implementation_plan_finalized:
+terms_and_conditions_aligned:
+order_form_aligned:
+internal_approvals_complete:
+customer_approvals_complete:
+po_process_defined:
+po_process_summary:
+signature_process_defined:
+signature_process_summary:
+executed_agreement_received:
+customer_invoiced:
+last_meaningful_customer_interaction_date:
+next_meeting_scheduled:
+next_step_defined:
+next_step_description:
+next_step_date:
+stage_evidence_notes:
+risks:
+red_flags:
+validation_scores:
+  economic_buyer_identified:
+  executive_sponsor_identified:
+  business_challenge_defined:
+  compelling_event_defined:
+  competition_identified:
+  timeline_defined:
+  budget_defined:
+  decision_criteria_defined:
+  decision_process_defined:
+  business_value_defined:
+  roi_defined:
+  implementation_scope_defined:
+  political_influence_map_complete:
+  mutual_close_plan_exists:
+  verbal_selection_received:
