@@ -19,7 +19,13 @@ interface SupportResponse {
   confidence: number;
   escalated: boolean;
   escalationReason?: string;
+  mockSlackNotification?: MockSlackNotification;
   sources: SearchHit[];
+}
+
+interface MockSlackNotification {
+  channel: string;
+  message: string;
 }
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -167,6 +173,7 @@ function buildSupportResponse(message: string, hits: SearchHit[]): SupportRespon
       confidence,
       escalated,
       escalationReason,
+      mockSlackNotification: buildMockSlackNotification(message, escalationReason ?? "Escalation required.", hits),
       sources: hits
     };
   }
@@ -198,6 +205,26 @@ function buildGroundedContext(hits: SearchHit[]) {
   }
 
   return `Relevant internal context found: ${snippets.join(" ")}`;
+}
+
+function buildMockSlackNotification(message: string, reason: string, hits: SearchHit[]): MockSlackNotification {
+  const sourceList = hits.length > 0 ? hits.map((hit) => `- ${hit.path}`).join("\n") : "- No strong source match";
+
+  return {
+    channel: "#support-escalations",
+    message: [
+      "New Halosight support escalation",
+      "",
+      "User message:",
+      message,
+      "",
+      "Reason:",
+      reason,
+      "",
+      "Sources:",
+      sourceList
+    ].join("\n")
+  };
 }
 
 function calculateConfidence(message: string, hits: SearchHit[]) {
