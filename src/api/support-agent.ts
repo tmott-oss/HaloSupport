@@ -20,12 +20,19 @@ interface SupportResponse {
   escalated: boolean;
   escalationReason?: string;
   mockSlackNotification?: MockSlackNotification;
+  slackDelivery?: SlackDelivery;
   sources: SearchHit[];
 }
 
 interface MockSlackNotification {
   channel: string;
   message: string;
+}
+
+interface SlackDelivery {
+  mode: "webhook";
+  delivered: boolean;
+  error?: string;
 }
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -227,6 +234,42 @@ function buildMockSlackNotification(message: string, reason: string, hits: Searc
   };
 }
 
+async function postSlackEscalation(notification: MockSlackNotification): Promise<SlackDelivery | undefined> {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  if (!webhookUrl) {
+    return undefined;
+  }
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: notification.message
+      })
+    });
+
+    if (!response.ok) {
+      return {
+        mode: "webhook",
+        delivered: false,
+        error: `Slack webhook failed: ${response.status} ${await response.text()}`
+      };
+    }
+
+    return {
+      mode: "webhook",
+      delivered: true
+    };
+  } catch (error) {
+    return {
+      mode: "webhook",
+      delivered: false,
+      error: error instanceof Error ? error.message : "Unknown Slack webhook error."
+    };
+  }
+}
+
 function calculateConfidence(message: string, hits: SearchHit[]) {
   const tokens = tokenize(message);
   if (tokens.length === 0 || hits.length === 0) {
@@ -308,7 +351,12 @@ const server = createServer(async (request, response) => {
 
     const documents = await loadKnowledgeBase();
     const hits = searchKnowledgeBase(documents, message);
-    writeJson(response, 200, buildSupportResponse(message, hits));
+    const supportResponse = buildSupportResponse(message, hits);
+    if (supportResponse.escalated && supportResponse.mockSlackNotification) {
+      supportResponse.slackDelivery = await postSlackEscalation(supportResponse.mockSlackNotification);
+    }
+
+    writeJson(response, 200, supportResponse);
   } catch (error) {
     writeJson(response, 500, { error: error instanceof Error ? error.message : "Unknown error." });
   }
