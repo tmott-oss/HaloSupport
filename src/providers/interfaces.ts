@@ -31,3 +31,45 @@ export interface SlackProvider {
   postCallSummaryApproval(packet: CallSummaryPacket, artifactUrl?: string, gmailDraftUrl?: string): Promise<{ url: string }>;
   postApprovalRequest(approval: ApprovalRequest): Promise<{ url: string }>;
 }
+
+export interface ChatwootContactInput {
+  identifier?: string;
+  name?: string;
+  email?: string;
+  phoneNumber?: string;
+  customAttributes?: Record<string, unknown>;
+}
+
+export interface ChatwootTranscriptMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt?: string;
+}
+
+export interface ChatwootCreateConversationInput {
+  sessionId: string;
+  source: "public_website" | "authenticated_app" | "flutter_webview";
+  contact?: ChatwootContactInput;
+  subject?: string;
+  transcript: ChatwootTranscriptMessage[];
+  escalationReason: string;
+  customAttributes?: Record<string, unknown>;
+}
+
+export interface ChatwootConversation {
+  conversationId: string;
+  status: "open" | "pending" | "resolved" | "unknown";
+  url?: string;
+}
+
+export interface ChatwootAppendMessageInput {
+  conversationId: string;
+  content: string;
+  messageType: "incoming" | "outgoing" | "private_note";
+}
+
+export interface ChatwootProvider {
+  createConversation(input: ChatwootCreateConversationInput): Promise<ChatwootConversation>;
+  appendMessage(input: ChatwootAppendMessageInput): Promise<{ messageId?: string }>;
+  getConversation(conversationId: string): Promise<ChatwootConversation>;
+}
