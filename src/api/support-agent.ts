@@ -37,6 +37,8 @@ interface MockSlackNotification {
 interface SlackDelivery {
   mode: "webhook";
   delivered: boolean;
+  status?: number;
+  responseBody?: string;
   error?: string;
 }
 
@@ -871,17 +873,25 @@ async function postSlackEscalation(notification: MockSlackNotification): Promise
       })
     });
 
-    if (!response.ok) {
+    const responseBody = await response.text();
+
+    const slackAcceptedMessage = responseBody.trim() === "ok";
+
+    if (!response.ok || !slackAcceptedMessage) {
       return {
         mode: "webhook",
         delivered: false,
-        error: `Slack webhook failed: ${response.status} ${await response.text()}`
+        status: response.status,
+        responseBody,
+        error: `Slack webhook failed: ${response.status} ${responseBody.slice(0, 120)}`
       };
     }
 
     return {
       mode: "webhook",
-      delivered: true
+      delivered: true,
+      status: response.status,
+      responseBody
     };
   } catch (error) {
     return {
