@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -33,6 +34,30 @@ interface SlackDelivery {
   mode: "webhook";
   delivered: boolean;
   error?: string;
+}
+
+type SupportSurface = "public_website" | "authenticated_app" | "flutter_webview";
+type KnowledgeSet = "public_site" | "authenticated_app";
+type HumanSupportStatus = "ai_only" | "escalated";
+
+interface ChatSession {
+  sessionId: string;
+  surface: SupportSurface;
+  knowledgeSet: KnowledgeSet;
+  route?: string;
+  userId?: string;
+  accountId?: string;
+  humanSupportStatus: HumanSupportStatus;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatTranscriptMessage[];
+}
+
+interface ChatTranscriptMessage {
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+  escalated?: boolean;
 }
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -618,6 +643,7 @@ const supportTestPage = String.raw`<!doctype html>
 </html>`;
 
 let knowledgeCache: Promise<KnowledgeDocument[]> | undefined;
+const chatSessions = new Map<string, ChatSession>();
 
 async function loadKnowledgeBase() {
   knowledgeCache ??= (async () => {
@@ -798,6 +824,75 @@ async function postSlackEscalation(notification: MockSlackNotification): Promise
   }
 }
 
+async function answerSupportMessage(message: string) {
+  const documents = await loadKnowledgeBase();
+  const hits = searchKnowledgeBase(documents, message);
+  const supportResponse = buildSupportResponse(message, hits);
+  if (supportResponse.escalated && supportResponse.mockSlackNotification) {
+    supportResponse.slackDelivery = await postSlackEscalation(supportResponse.mockSlackNotification);
+  }
+
+  return supportResponse;
+}
+
+function createChatSession(params: {
+  surface?: unknown;
+  route?: unknown;
+  userId?: unknown;
+  accountId?: unknown;
+  knowledgeSet?: unknown;
+}) {
+  const surface = normalizeSurface(params.surface);
+  const knowledgeSet = normalizeKnowledgeSet(params.knowledgeSet, surface);
+  const now = new Date().toISOString();
+  const session: ChatSession = {
+    sessionId: randomUUID(),
+    surface,
+    knowledgeSet,
+    route: typeof params.route === "string" ? params.route : undefined,
+    userId: typeof params.userId === "string" ? params.userId : undefined,
+    accountId: typeof params.accountId === "string" ? params.accountId : undefined,
+    humanSupportStatus: "ai_only",
+    createdAt: now,
+    updatedAt: now,
+    messages: []
+  };
+
+  chatSessions.set(session.sessionId, session);
+  return session;
+}
+
+function normalizeSurface(value: unknown): SupportSurface {
+  if (value === "authenticated_app" || value === "flutter_webview" || value === "public_website") {
+    return value;
+  }
+
+  return "public_website";
+}
+
+function normalizeKnowledgeSet(value: unknown, surface: SupportSurface): KnowledgeSet {
+  if (value === "public_site" || value === "authenticated_app") {
+    return value;
+  }
+
+  return surface === "authenticated_app" ? "authenticated_app" : "public_site";
+}
+
+function publicSession(session: ChatSession) {
+  return {
+    sessionId: session.sessionId,
+    surface: session.surface,
+    knowledgeSet: session.knowledgeSet,
+    route: session.route,
+    userId: session.userId,
+    accountId: session.accountId,
+    humanSupportStatus: session.humanSupportStatus,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    messageCount: session.messages.length
+  };
+}
+
 function calculateConfidence(message: string, hits: SearchHit[]) {
   const tokens = tokenize(message);
   if (tokens.length === 0 || hits.length === 0) {
@@ -864,37 +959,80 @@ function writeHtml(response: ServerResponse, html: string) {
 
 const server = createServer(async (request, response) => {
   try {
-    if (request.method === "GET" && (request.url === "/" || request.url === "/support-test")) {
+    const requestPath = request.url?.split("?")[0] ?? "";
+
+    if (request.method === "GET" && (requestPath === "/" || requestPath === "/support-test")) {
       writeHtml(response, supportTestPage);
       return;
     }
 
-    if (request.method === "GET" && request.url === "/health") {
+    if (request.method === "GET" && requestPath === "/health") {
       writeJson(response, 200, { status: "ok" });
       return;
     }
 
-    if (request.method !== "POST" || request.url !== "/support") {
-      writeJson(response, 404, { error: "Use POST /support with a JSON body: { \"message\": \"...\" }." });
+    if (request.method === "POST" && requestPath === "/chat/session") {
+      const body = await readJsonBody(request);
+      const session = createChatSession(body as Record<string, unknown>);
+      writeJson(response, 201, { session: publicSession(session) });
       return;
     }
 
-    const body = await readJsonBody(request);
-    const message = typeof (body as { message?: unknown }).message === "string" ? (body as { message: string }).message : "";
+    if (request.method === "POST" && requestPath === "/chat/message") {
+      const body = await readJsonBody(request);
+      const message = typeof (body as { message?: unknown }).message === "string" ? (body as { message: string }).message : "";
+      if (!message.trim()) {
+        writeJson(response, 400, { error: "message is required." });
+        return;
+      }
 
-    if (!message.trim()) {
-      writeJson(response, 400, { error: "message is required." });
+      const sessionId = typeof (body as { sessionId?: unknown }).sessionId === "string" ? (body as { sessionId: string }).sessionId : "";
+      const session = chatSessions.get(sessionId) ?? createChatSession((body as { context?: unknown }).context ?? {});
+      const now = new Date().toISOString();
+      session.messages.push({ role: "user", content: message, createdAt: now });
+
+      const supportResponse = await answerSupportMessage(message);
+      session.humanSupportStatus = supportResponse.escalated ? "escalated" : session.humanSupportStatus;
+      session.updatedAt = new Date().toISOString();
+      session.messages.push({
+        role: "assistant",
+        content: supportResponse.response,
+        createdAt: session.updatedAt,
+        escalated: supportResponse.escalated
+      });
+
+      writeJson(response, 200, {
+        session: publicSession(session),
+        reply: {
+          role: "assistant",
+          content: supportResponse.response,
+          escalated: supportResponse.escalated,
+          escalationReason: supportResponse.escalationReason,
+          confidence: supportResponse.confidence,
+          sources: supportResponse.sources,
+          slackDelivery: supportResponse.slackDelivery,
+          chatwoot: {
+            status: supportResponse.escalated ? "not_configured" : "not_needed"
+          }
+        }
+      });
       return;
     }
 
-    const documents = await loadKnowledgeBase();
-    const hits = searchKnowledgeBase(documents, message);
-    const supportResponse = buildSupportResponse(message, hits);
-    if (supportResponse.escalated && supportResponse.mockSlackNotification) {
-      supportResponse.slackDelivery = await postSlackEscalation(supportResponse.mockSlackNotification);
+    if (request.method === "POST" && requestPath === "/support") {
+      const body = await readJsonBody(request);
+      const message = typeof (body as { message?: unknown }).message === "string" ? (body as { message: string }).message : "";
+
+      if (!message.trim()) {
+        writeJson(response, 400, { error: "message is required." });
+        return;
+      }
+
+      writeJson(response, 200, await answerSupportMessage(message));
+      return;
     }
 
-    writeJson(response, 200, supportResponse);
+    writeJson(response, 404, { error: "Use POST /support or the /chat/session and /chat/message endpoints." });
   } catch (error) {
     writeJson(response, 500, { error: error instanceof Error ? error.message : "Unknown error." });
   }
