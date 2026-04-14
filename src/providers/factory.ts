@@ -1,9 +1,10 @@
 import { defaultConfig, type AppConfig } from "../config.js";
-import type { ApolloProvider, SalesforceProvider } from "./interfaces.js";
+import type { ApolloProvider, ChatwootProvider, SalesforceProvider } from "./interfaces.js";
 import { MockGoogleWorkspaceProvider, MockSlackProvider } from "./mock.js";
 import { GoogleWorkspaceApiProvider } from "./google-workspace.js";
 import { LocalRevenueContextProvider } from "./local-revenue-context.js";
 import { SlackApiProvider } from "./slack.js";
+import { ChatwootApiProvider, hasChatwootCredentials, MockChatwootProvider } from "./chatwoot.js";
 
 function hasGoogleWorkspaceCredentials() {
   return Boolean(
@@ -25,10 +26,12 @@ export function createProviderSet(config: AppConfig = defaultConfig) {
   const localRevenueContext = new LocalRevenueContextProvider();
   const salesforce: SalesforceProvider = localRevenueContext;
   const apollo: ApolloProvider = localRevenueContext;
+  const chatwoot: ChatwootProvider = hasChatwootCredentials() ? new ChatwootApiProvider() : new MockChatwootProvider();
 
   return {
     google,
     slack,
+    chatwoot,
     salesforce,
     apollo,
     revenueContext: localRevenueContext
