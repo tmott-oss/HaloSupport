@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { ChatwootApiProvider, hasChatwootCredentials, MockChatwootProvider } from "../providers/chatwoot.js";
@@ -48,6 +49,8 @@ interface ChatwootEscalationResult {
 type SupportSurface = "public_website" | "authenticated_app" | "flutter_webview";
 type KnowledgeSet = "public_site" | "authenticated_app";
 type HumanSupportStatus = "ai_only" | "escalated";
+
+loadLocalEnv();
 
 interface ChatSession {
   sessionId: string;
@@ -122,6 +125,29 @@ const restrictedClaimPatterns = [
   /\bFleetPride\b/i,
   /\bChallenger Gray\b/i
 ];
+
+function loadLocalEnv() {
+  const envPath = path.join(process.cwd(), ".env");
+  if (!existsSync(envPath)) {
+    return;
+  }
+
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+
+    const equalsIndex = trimmed.indexOf("=");
+    if (equalsIndex === -1) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, equalsIndex).trim();
+    const value = trimmed.slice(equalsIndex + 1).trim().replace(/^['"]|['"]$/g, "");
+    process.env[key] ??= value;
+  }
+}
 
 const supportTestPage = String.raw`<!doctype html>
 <html lang="en">
