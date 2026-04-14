@@ -3,6 +3,9 @@ import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { ChatwootApiProvider, hasChatwootCredentials, MockChatwootProvider } from "../providers/chatwoot.js";
+import type { ChatwootConversation, ChatwootProvider } from "../providers/interfaces.js";
+
 interface KnowledgeDocument {
   path: string;
   content: string;
@@ -33,6 +36,12 @@ interface MockSlackNotification {
 interface SlackDelivery {
   mode: "webhook";
   delivered: boolean;
+  error?: string;
+}
+
+interface ChatwootEscalationResult {
+  status: "created" | "not_needed" | "failed";
+  conversation?: ChatwootConversation;
   error?: string;
 }
 
@@ -644,6 +653,7 @@ const supportTestPage = String.raw`<!doctype html>
 
 let knowledgeCache: Promise<KnowledgeDocument[]> | undefined;
 const chatSessions = new Map<string, ChatSession>();
+const chatwootProvider: ChatwootProvider = hasChatwootCredentials() ? new ChatwootApiProvider() : new MockChatwootProvider();
 
 async function loadKnowledgeBase() {
   knowledgeCache ??= (async () => {
@@ -893,6 +903,50 @@ function publicSession(session: ChatSession) {
   };
 }
 
+async function createChatwootEscalation(
+  session: ChatSession,
+  supportResponse: SupportResponse
+): Promise<ChatwootEscalationResult> {
+  if (!supportResponse.escalated) {
+    return { status: "not_needed" };
+  }
+
+  try {
+    const conversation = await chatwootProvider.createConversation({
+      sessionId: session.sessionId,
+      source: session.surface,
+      subject: `Halosight support escalation: ${session.route ?? session.surface}`,
+      escalationReason: supportResponse.escalationReason ?? "Escalation required.",
+      transcript: session.messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+        createdAt: message.createdAt
+      })),
+      contact: session.userId
+        ? {
+            identifier: session.userId
+          }
+        : undefined,
+      customAttributes: {
+        surface: session.surface,
+        knowledgeSet: session.knowledgeSet,
+        route: session.route,
+        accountId: session.accountId
+      }
+    });
+
+    return {
+      status: "created",
+      conversation
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      error: error instanceof Error ? error.message : "Unknown Chatwoot escalation error."
+    };
+  }
+}
+
 function calculateConfidence(message: string, hits: SearchHit[]) {
   const tokens = tokenize(message);
   if (tokens.length === 0 || hits.length === 0) {
@@ -1000,6 +1054,7 @@ const server = createServer(async (request, response) => {
         createdAt: session.updatedAt,
         escalated: supportResponse.escalated
       });
+      const chatwoot = await createChatwootEscalation(session, supportResponse);
 
       writeJson(response, 200, {
         session: publicSession(session),
@@ -1011,9 +1066,7 @@ const server = createServer(async (request, response) => {
           confidence: supportResponse.confidence,
           sources: supportResponse.sources,
           slackDelivery: supportResponse.slackDelivery,
-          chatwoot: {
-            status: supportResponse.escalated ? "not_configured" : "not_needed"
-          }
+          chatwoot
         }
       });
       return;
