@@ -536,11 +536,11 @@ const supportTestPage = String.raw`<!doctype html>
         <div class="copy">
           <p class="eyebrow">Halosight support test</p>
           <h1>Try the support tab before it reaches the website.</h1>
-          <p class="lede">Ask a question, see the grounded answer, and confirm that sensitive or uncertain requests route to Slack.</p>
+          <p class="lede">Ask a question, see the grounded answer, and confirm that sensitive or uncertain requests create a human-support handoff.</p>
           <ul class="checks" aria-label="Test checklist">
             <li><span>1</span> Send a common support question.</li>
             <li><span>2</span> Trigger escalation with a restricted claim.</li>
-            <li><span>3</span> Confirm Slack receives the escalation.</li>
+            <li><span>3</span> Confirm the mock Chatwoot conversation is created.</li>
           </ul>
         </div>
         <div class="visual" aria-hidden="true">
@@ -564,7 +564,7 @@ const supportTestPage = String.raw`<!doctype html>
       <div class="panel-head">
         <div>
           <h2>Halosight Support</h2>
-          <p>Answers from the local KB. Escalations post to Slack when the webhook is configured.</p>
+          <p>Answers from the local KB. Escalations create a mock Chatwoot conversation and can still notify Slack when configured.</p>
         </div>
         <button class="close" type="button" id="closePanel" aria-label="Close support panel">×</button>
       </div>
@@ -589,6 +589,7 @@ const supportTestPage = String.raw`<!doctype html>
       const result = document.querySelector("#result");
       const sendButton = document.querySelector("#sendButton");
       const sampleQuestion = document.querySelector("#sampleQuestion");
+      let sessionId = window.localStorage.getItem("halosightSupportSessionId");
 
       function setOpen(open) {
         panel.classList.toggle("open", open);
@@ -615,10 +616,18 @@ const supportTestPage = String.raw`<!doctype html>
         result.innerHTML = '<p class="placeholder">Checking the knowledge base...</p>';
 
         try {
-          const response = await fetch("/support", {
+          const activeSessionId = await ensureSession();
+          const response = await fetch("/chat/message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text })
+            body: JSON.stringify({
+              sessionId: activeSessionId,
+              message: text,
+              context: {
+                surface: "public_website",
+                route: window.location.pathname
+              }
+            })
           });
           const payload = await response.json();
           renderResult(payload);
@@ -630,21 +639,43 @@ const supportTestPage = String.raw`<!doctype html>
         }
       });
 
+      async function ensureSession() {
+        if (sessionId) {
+          return sessionId;
+        }
+
+        const response = await fetch("/chat/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            surface: "public_website",
+            route: window.location.pathname
+          })
+        });
+        const payload = await response.json();
+        sessionId = payload.session.sessionId;
+        window.localStorage.setItem("halosightSupportSessionId", sessionId);
+        return sessionId;
+      }
+
       function renderResult(payload) {
-        const statusText = payload.escalated ? "Escalated" : "Answered";
+        const reply = payload.reply;
+        const statusText = reply.escalated ? "Escalated" : "Answered";
         const details = JSON.stringify({
-          confidence: payload.confidence,
-          escalationReason: payload.escalationReason,
-          slackDelivery: payload.slackDelivery,
-          sources: payload.sources
+          session: payload.session,
+          confidence: reply.confidence,
+          escalationReason: reply.escalationReason,
+          slackDelivery: reply.slackDelivery,
+          chatwoot: reply.chatwoot,
+          sources: reply.sources
         }, null, 2);
 
         result.innerHTML = [
-          '<span class="status ' + (payload.escalated ? "escalated" : "") + '">' + statusText + '</span>',
+          '<span class="status ' + (reply.escalated ? "escalated" : "") + '">' + statusText + '</span>',
           '<p class="answer"></p>',
           '<details><summary>Response details</summary><pre></pre></details>'
         ].join("");
-        result.querySelector(".answer").textContent = payload.response;
+        result.querySelector(".answer").textContent = reply.content;
         result.querySelector("pre").textContent = details;
       }
     </script>
