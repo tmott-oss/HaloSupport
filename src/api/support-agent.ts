@@ -75,6 +75,7 @@ interface ChatTranscriptMessage {
 const PORT = Number(process.env.PORT ?? 3000);
 const LOW_CONFIDENCE_THRESHOLD = 0.35;
 const MAX_REQUEST_BYTES = 64 * 1024;
+const chatClientDistDir = path.join(process.cwd(), "apps", "chat-client-react", "dist");
 const supportedKnowledgeExtensions = new Set([".md", ".json", ".yaml", ".yml"]);
 const stopWords = new Set([
   "about",
@@ -1068,12 +1069,53 @@ function writeHtml(response: ServerResponse, html: string) {
   response.end(html);
 }
 
+async function serveChatClient(requestPath: string, response: ServerResponse, includeBody = true) {
+  const relativePath =
+    requestPath === "/chat-client" || requestPath === "/chat-client/"
+      ? "index.html"
+      : decodeURIComponent(requestPath.replace(/^\/chat-client\//, ""));
+  const safePath = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, "");
+  const filePath = path.join(chatClientDistDir, safePath);
+
+  if (!filePath.startsWith(chatClientDistDir)) {
+    writeJson(response, 400, { error: "Invalid chat client asset path." });
+    return;
+  }
+
+  try {
+    const content = await readFile(filePath);
+    response.writeHead(200, { "Content-Type": contentTypeFor(filePath) });
+    response.end(includeBody ? content : undefined);
+  } catch {
+    writeJson(response, 404, {
+      error: "Chat client build not found. Run npm run build:chat-client first."
+    });
+  }
+}
+
+function contentTypeFor(filePath: string) {
+  if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
+  if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
+  if (filePath.endsWith(".svg")) return "image/svg+xml";
+  if (filePath.endsWith(".json")) return "application/json";
+  return "application/octet-stream";
+}
+
 const server = createServer(async (request, response) => {
   try {
     const requestPath = request.url?.split("?")[0] ?? "";
 
     if (request.method === "GET" && (requestPath === "/" || requestPath === "/support-test")) {
       writeHtml(response, supportTestPage);
+      return;
+    }
+
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      (requestPath === "/chat-client" || requestPath.startsWith("/chat-client/"))
+    ) {
+      await serveChatClient(requestPath, response, request.method === "GET");
       return;
     }
 
