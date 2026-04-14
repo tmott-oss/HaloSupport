@@ -89,6 +89,534 @@ const restrictedClaimPatterns = [
   /\bChallenger Gray\b/i
 ];
 
+const supportTestPage = String.raw`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Halosight Support Test</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8f4;
+        --ink: #1d201f;
+        --muted: #626a66;
+        --line: #d8ded6;
+        --surface: #ffffff;
+        --accent: #0f766e;
+        --accent-strong: #0b5e59;
+        --alert: #b42318;
+        --soft: #edf7f4;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: 0;
+      }
+
+      main {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+      }
+
+      .workspace {
+        width: min(1120px, 100%);
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+        gap: 32px;
+        align-items: stretch;
+      }
+
+      .copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 22px;
+        min-width: 0;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent-strong);
+        font-size: 14px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 760px;
+        font-size: clamp(38px, 7vw, 78px);
+        line-height: 0.94;
+        letter-spacing: 0;
+      }
+
+      .lede {
+        margin: 0;
+        max-width: 640px;
+        color: var(--muted);
+        font-size: 19px;
+        line-height: 1.55;
+      }
+
+      .checks {
+        display: grid;
+        gap: 12px;
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .checks li {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: #343a37;
+        font-size: 15px;
+      }
+
+      .checks span {
+        width: 22px;
+        height: 22px;
+        border-radius: 8px;
+        display: inline-grid;
+        place-items: center;
+        background: var(--soft);
+        color: var(--accent-strong);
+        font-weight: 900;
+        flex: 0 0 auto;
+      }
+
+      .visual {
+        min-height: 520px;
+        border-left: 1px solid var(--line);
+        padding-left: 32px;
+        display: flex;
+        align-items: center;
+      }
+
+      .browser {
+        width: 100%;
+        min-height: 420px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(26, 35, 31, 0.12);
+      }
+
+      .browser-bar {
+        height: 44px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #d6b64d;
+      }
+
+      .dot:nth-child(2) {
+        background: #c65b45;
+      }
+
+      .dot:nth-child(3) {
+        background: #2f9d70;
+        margin-right: 10px;
+      }
+
+      .mock-site {
+        position: relative;
+        min-height: 376px;
+        padding: 28px;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.78)),
+          url("https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80") center / cover;
+      }
+
+      .mock-lines {
+        max-width: 330px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .mock-lines div {
+        height: 16px;
+        border-radius: 8px;
+        background: rgba(29, 32, 31, 0.16);
+      }
+
+      .mock-lines div:first-child {
+        width: 76%;
+        height: 34px;
+        background: rgba(29, 32, 31, 0.28);
+      }
+
+      .mock-lines div:nth-child(3) {
+        width: 62%;
+      }
+
+      .support-tab {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        z-index: 20;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        padding: 14px 18px;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 14px 30px rgba(15, 118, 110, 0.28);
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .support-tab:hover,
+      .support-tab:focus-visible {
+        transform: translateY(-2px);
+        background: var(--accent-strong);
+      }
+
+      .support-panel {
+        position: fixed;
+        right: 22px;
+        bottom: 84px;
+        z-index: 30;
+        width: min(440px, calc(100vw - 32px));
+        max-height: min(720px, calc(100vh - 112px));
+        display: grid;
+        grid-template-rows: auto auto minmax(160px, 1fr);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 22px 70px rgba(26, 35, 31, 0.22);
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(12px);
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .support-panel.open {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+
+      .panel-head {
+        padding: 18px 18px 16px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .panel-head p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .close {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 20px;
+      }
+
+      form {
+        padding: 18px;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 12px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 110px;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        color: var(--ink);
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.45;
+      }
+
+      textarea:focus {
+        outline: 3px solid rgba(15, 118, 110, 0.18);
+        border-color: var(--accent);
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .sample {
+        border: 0;
+        background: transparent;
+        color: var(--accent-strong);
+        padding: 0;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .send {
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        padding: 11px 16px;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .send:disabled {
+        cursor: wait;
+        opacity: 0.62;
+      }
+
+      .result {
+        min-height: 180px;
+        overflow: auto;
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+
+      .placeholder {
+        color: var(--muted);
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      .status {
+        display: inline-flex;
+        width: fit-content;
+        border-radius: 8px;
+        padding: 6px 9px;
+        background: var(--soft);
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .status.escalated {
+        background: #fff1ef;
+        color: var(--alert);
+      }
+
+      .answer {
+        margin: 0;
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+
+      details {
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+
+      summary {
+        cursor: pointer;
+        color: var(--accent-strong);
+        font-weight: 800;
+      }
+
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 12px 0 0;
+        padding: 12px;
+        background: #f4f5f0;
+        border-radius: 8px;
+        color: #2c322f;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 860px) {
+        main {
+          padding: 22px;
+          place-items: start;
+        }
+
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .visual {
+          min-height: 320px;
+          border-left: 0;
+          border-top: 1px solid var(--line);
+          padding: 24px 0 0;
+        }
+
+        h1 {
+          font-size: 44px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="workspace" aria-label="Halosight support test workspace">
+        <div class="copy">
+          <p class="eyebrow">Halosight support test</p>
+          <h1>Try the support tab before it reaches the website.</h1>
+          <p class="lede">Ask a question, see the grounded answer, and confirm that sensitive or uncertain requests route to Slack.</p>
+          <ul class="checks" aria-label="Test checklist">
+            <li><span>1</span> Send a common support question.</li>
+            <li><span>2</span> Trigger escalation with a restricted claim.</li>
+            <li><span>3</span> Confirm Slack receives the escalation.</li>
+          </ul>
+        </div>
+        <div class="visual" aria-hidden="true">
+          <div class="browser">
+            <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>halosight.com</div>
+            <div class="mock-site">
+              <div class="mock-lines">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <button class="support-tab" type="button" id="supportTab" aria-expanded="false">Support</button>
+    <aside class="support-panel" id="supportPanel" aria-label="Support test panel">
+      <div class="panel-head">
+        <div>
+          <h2>Halosight Support</h2>
+          <p>Answers from the local KB. Escalations post to Slack when the webhook is configured.</p>
+        </div>
+        <button class="close" type="button" id="closePanel" aria-label="Close support panel">×</button>
+      </div>
+      <form id="supportForm">
+        <textarea id="message" required>Can we tell a customer Halosight is SOC 2 certified and guarantees ROI?</textarea>
+        <div class="actions">
+          <button class="sample" type="button" id="sampleQuestion">Use Salesforce question</button>
+          <button class="send" type="submit" id="sendButton">Send</button>
+        </div>
+      </form>
+      <div class="result" id="result">
+        <p class="placeholder">Send a question to see the response here.</p>
+      </div>
+    </aside>
+
+    <script>
+      const panel = document.querySelector("#supportPanel");
+      const tab = document.querySelector("#supportTab");
+      const closePanel = document.querySelector("#closePanel");
+      const form = document.querySelector("#supportForm");
+      const message = document.querySelector("#message");
+      const result = document.querySelector("#result");
+      const sendButton = document.querySelector("#sendButton");
+      const sampleQuestion = document.querySelector("#sampleQuestion");
+
+      function setOpen(open) {
+        panel.classList.toggle("open", open);
+        tab.setAttribute("aria-expanded", String(open));
+        if (open) {
+          message.focus();
+        }
+      }
+
+      tab.addEventListener("click", () => setOpen(!panel.classList.contains("open")));
+      closePanel.addEventListener("click", () => setOpen(false));
+      sampleQuestion.addEventListener("click", () => {
+        message.value = "How should Halosight respond when someone says they already use Salesforce?";
+        message.focus();
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const text = message.value.trim();
+        if (!text) return;
+
+        sendButton.disabled = true;
+        sendButton.textContent = "Sending";
+        result.innerHTML = '<p class="placeholder">Checking the knowledge base...</p>';
+
+        try {
+          const response = await fetch("/support", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text })
+          });
+          const payload = await response.json();
+          renderResult(payload);
+        } catch (error) {
+          result.innerHTML = '<span class="status escalated">Error</span><p class="answer">The support request could not be sent.</p>';
+        } finally {
+          sendButton.disabled = false;
+          sendButton.textContent = "Send";
+        }
+      });
+
+      function renderResult(payload) {
+        const statusText = payload.escalated ? "Escalated" : "Answered";
+        const details = JSON.stringify({
+          confidence: payload.confidence,
+          escalationReason: payload.escalationReason,
+          slackDelivery: payload.slackDelivery,
+          sources: payload.sources
+        }, null, 2);
+
+        result.innerHTML = [
+          '<span class="status ' + (payload.escalated ? "escalated" : "") + '">' + statusText + '</span>',
+          '<p class="answer"></p>',
+          '<details><summary>Response details</summary><pre></pre></details>'
+        ].join("");
+        result.querySelector(".answer").textContent = payload.response;
+        result.querySelector("pre").textContent = details;
+      }
+    </script>
+  </body>
+</html>`;
+
 let knowledgeCache: Promise<KnowledgeDocument[]> | undefined;
 
 async function loadKnowledgeBase() {
@@ -329,8 +857,18 @@ function writeJson(response: ServerResponse, statusCode: number, payload: unknow
   response.end(JSON.stringify(payload, null, 2));
 }
 
+function writeHtml(response: ServerResponse, html: string) {
+  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  response.end(html);
+}
+
 const server = createServer(async (request, response) => {
   try {
+    if (request.method === "GET" && (request.url === "/" || request.url === "/support-test")) {
+      writeHtml(response, supportTestPage);
+      return;
+    }
+
     if (request.method === "GET" && request.url === "/health") {
       writeJson(response, 200, { status: "ok" });
       return;
