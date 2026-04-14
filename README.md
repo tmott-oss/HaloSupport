@@ -47,6 +47,12 @@ Start the support API:
 npm run start:support-api
 ```
 
+For local secrets, copy `.env.example` to `.env` and fill in private values:
+
+```bash
+cp .env.example .env
+```
+
 Health check:
 
 ```bash
