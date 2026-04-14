@@ -34,8 +34,27 @@ http://127.0.0.1:5173
 
 Next implementation step:
 
-1. Serve the built assets from the wrapper service for local testing.
-2. Replace the inline `/support-test` HTML once the React bundle is working.
+1. Build the client:
+
+```bash
+npm run build:chat-client
+```
+
+2. Start the wrapper service:
+
+```bash
+npm run start:support-api
+```
+
+3. Open the backend-served client:
+
+```text
+http://localhost:3001/chat-client
+```
+
+Future implementation step:
+
+Replace the inline `/support-test` HTML once the React bundle is fully accepted as the local test surface.
 
 ## Runtime Contract
 
