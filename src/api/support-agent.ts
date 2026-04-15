@@ -725,6 +725,472 @@ const supportTestPage = String.raw`<!doctype html>
   </body>
 </html>`;
 
+const ticketOpsPage = String.raw`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Halosight Support Tickets</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6f3;
+        --ink: #1f2421;
+        --muted: #65706a;
+        --line: #d6ddd7;
+        --surface: #ffffff;
+        --accent: #0f766e;
+        --accent-soft: #e4f4f1;
+        --danger: #a63a2a;
+        --danger-soft: #f9e8e3;
+        --warn: #8a6500;
+        --warn-soft: #fff3c4;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: 0;
+      }
+
+      button,
+      select {
+        font: inherit;
+      }
+
+      main {
+        width: min(1280px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: flex-end;
+        padding-bottom: 22px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 34px;
+        line-height: 1.05;
+      }
+
+      .subhead {
+        margin: 8px 0 0;
+        color: var(--muted);
+        max-width: 680px;
+        line-height: 1.5;
+      }
+
+      .refresh {
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        padding: 11px 15px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.4fr);
+        gap: 24px;
+        padding-top: 24px;
+        align-items: start;
+      }
+
+      .panel-title {
+        margin: 0 0 12px;
+        font-size: 14px;
+        color: var(--muted);
+        text-transform: uppercase;
+        font-weight: 900;
+      }
+
+      .ticket-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .ticket-row {
+        width: 100%;
+        text-align: left;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 14px;
+        cursor: pointer;
+        display: grid;
+        gap: 8px;
+      }
+
+      .ticket-row[aria-current="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-soft);
+      }
+
+      .ticket-topline,
+      .detail-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .ticket-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 900;
+        color: var(--accent);
+        background: var(--accent-soft);
+        white-space: nowrap;
+      }
+
+      .status.resolved {
+        color: #4f5a55;
+        background: #edf0ee;
+      }
+
+      .status.waiting_on_customer {
+        color: var(--warn);
+        background: var(--warn-soft);
+      }
+
+      .status.waiting_on_human {
+        color: var(--danger);
+        background: var(--danger-soft);
+      }
+
+      .reason {
+        margin: 0;
+        line-height: 1.45;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .detail {
+        min-height: 520px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 20px;
+      }
+
+      .empty {
+        min-height: 360px;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        text-align: center;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        padding: 24px;
+      }
+
+      .detail h2 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .controls {
+        margin-top: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      select {
+        min-width: 220px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: #fff;
+        color: var(--ink);
+      }
+
+      .save {
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        padding: 10px 14px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .section {
+        margin-top: 24px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      .section h3 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+
+      .source-list {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .transcript {
+        display: grid;
+        gap: 12px;
+      }
+
+      .message {
+        border-left: 3px solid var(--line);
+        padding-left: 12px;
+      }
+
+      .message strong {
+        display: block;
+        margin-bottom: 4px;
+        text-transform: capitalize;
+      }
+
+      .message p {
+        margin: 0;
+        color: #303633;
+        line-height: 1.5;
+      }
+
+      .notice {
+        margin-top: 12px;
+        color: var(--muted);
+        min-height: 20px;
+      }
+
+      @media (max-width: 820px) {
+        main {
+          width: min(100% - 22px, 1280px);
+          padding: 18px 0;
+        }
+
+        header,
+        .ticket-topline,
+        .detail-topline {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Support Tickets</h1>
+          <p class="subhead">Review local escalation tickets, inspect the transcript, and update status while Chatwoot remains mocked.</p>
+        </div>
+        <button class="refresh" type="button">Refresh</button>
+      </header>
+
+      <section class="layout">
+        <div>
+          <p class="panel-title">Ticket Queue</p>
+          <div class="ticket-list" id="ticket-list"></div>
+        </div>
+
+        <div>
+          <p class="panel-title">Ticket Detail</p>
+          <div class="detail" id="ticket-detail">
+            <div class="empty">Select a ticket to review its escalation context.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const list = document.querySelector("#ticket-list");
+      const detail = document.querySelector("#ticket-detail");
+      const refresh = document.querySelector(".refresh");
+      let tickets = [];
+      let selectedTicketId = "";
+
+      refresh.addEventListener("click", () => loadTickets());
+
+      function formatDate(value) {
+        return value ? new Date(value).toLocaleString() : "Unknown";
+      }
+
+      function statusLabel(status) {
+        return String(status || "open").replaceAll("_", " ");
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      async function loadTickets() {
+        list.innerHTML = '<div class="empty">Loading tickets...</div>';
+        const response = await fetch("/tickets");
+        const data = await response.json();
+        tickets = data.tickets || [];
+        renderList();
+        if (selectedTicketId) {
+          await loadTicket(selectedTicketId);
+        }
+      }
+
+      function renderList() {
+        if (tickets.length === 0) {
+          list.innerHTML = '<div class="empty">No local tickets yet.</div>';
+          return;
+        }
+
+        list.innerHTML = tickets
+          .map((ticket) => [
+            '<button class="ticket-row" type="button" data-ticket-id="' + escapeHtml(ticket.ticketId) + '" aria-current="' + (ticket.ticketId === selectedTicketId) + '">',
+            '  <span class="ticket-topline">',
+            '    <span class="ticket-id">' + escapeHtml(ticket.ticketId) + '</span>',
+            '    <span class="status ' + escapeHtml(ticket.status) + '">' + escapeHtml(statusLabel(ticket.status)) + '</span>',
+            '  </span>',
+            '  <p class="reason">' + escapeHtml(ticket.escalationReason) + '</p>',
+            '  <span class="meta">Updated ' + escapeHtml(formatDate(ticket.updatedAt)) + '</span>',
+            '</button>'
+          ].join(""))
+          .join("");
+
+        list.querySelectorAll(".ticket-row").forEach((row) => {
+          row.addEventListener("click", () => {
+            selectedTicketId = row.dataset.ticketId;
+            renderList();
+            loadTicket(selectedTicketId);
+          });
+        });
+      }
+
+      async function loadTicket(ticketId) {
+        detail.innerHTML = '<div class="empty">Loading ticket detail...</div>';
+        const response = await fetch("/tickets/" + encodeURIComponent(ticketId));
+        if (!response.ok) {
+          detail.innerHTML = '<div class="empty">Ticket not found.</div>';
+          return;
+        }
+
+        const data = await response.json();
+        renderDetail(data.ticket);
+      }
+
+      function renderDetail(ticket) {
+        const sources = ticket.sourcePaths?.length
+          ? ticket.sourcePaths.map((source) => "<li>" + escapeHtml(source) + "</li>").join("")
+          : "<li>No source paths recorded.</li>";
+        const transcript = ticket.transcript?.length
+          ? ticket.transcript.map((message) => [
+              '<div class="message">',
+              '  <strong>' + escapeHtml(message.role) + ' - ' + escapeHtml(formatDate(message.createdAt)) + '</strong>',
+              '  <p>' + escapeHtml(message.content) + '</p>',
+              '</div>'
+            ].join("")).join("")
+          : '<p class="meta">No transcript messages recorded.</p>';
+
+        detail.innerHTML = [
+          '<div class="detail-topline">',
+          '  <div>',
+          '    <h2>' + escapeHtml(ticket.ticketId) + '</h2>',
+          '    <p class="meta">Session ' + escapeHtml(ticket.sessionId) + '</p>',
+          '  </div>',
+          '  <span class="status ' + escapeHtml(ticket.status) + '">' + escapeHtml(statusLabel(ticket.status)) + '</span>',
+          '</div>',
+          '<div class="controls">',
+          '  <label for="status">Status</label>',
+          '  <select id="status">',
+          '    <option value="open">open</option>',
+          '    <option value="waiting_on_human">waiting on human</option>',
+          '    <option value="waiting_on_customer">waiting on customer</option>',
+          '    <option value="resolved">resolved</option>',
+          '  </select>',
+          '  <button class="save" type="button">Save status</button>',
+          '</div>',
+          '<p class="notice" id="notice"></p>',
+          '<div class="section">',
+          '  <h3>Escalation Reason</h3>',
+          '  <p class="reason">' + escapeHtml(ticket.escalationReason) + '</p>',
+          '</div>',
+          '<div class="section">',
+          '  <h3>Source Paths</h3>',
+          '  <ul class="source-list">' + sources + '</ul>',
+          '</div>',
+          '<div class="section">',
+          '  <h3>Transcript</h3>',
+          '  <div class="transcript">' + transcript + '</div>',
+          '</div>'
+        ].join("");
+
+        const status = detail.querySelector("#status");
+        const notice = detail.querySelector("#notice");
+        status.value = ticket.status;
+        detail.querySelector(".save").addEventListener("click", async () => {
+          notice.textContent = "Saving...";
+          const response = await fetch("/tickets/" + encodeURIComponent(ticket.ticketId), {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: status.value })
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            notice.textContent = data.error || "Unable to update ticket.";
+            return;
+          }
+
+          notice.textContent = "Saved.";
+          selectedTicketId = data.ticket.ticketId;
+          await loadTickets();
+        });
+      }
+
+      loadTickets().catch((error) => {
+        list.innerHTML = '<div class="empty">Unable to load tickets.</div>';
+        detail.innerHTML = '<div class="empty">' + escapeHtml(error.message) + '</div>';
+      });
+    </script>
+  </body>
+</html>`;
+
 let knowledgeCache: Promise<KnowledgeDocument[]> | undefined;
 const chatSessions = new Map<string, ChatSession>();
 let sessionStoreReady: Promise<void> | undefined;
@@ -1377,6 +1843,11 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET" && (requestPath === "/" || requestPath === "/support-test")) {
       writeHtml(response, supportTestPage);
+      return;
+    }
+
+    if (request.method === "GET" && requestPath === "/tickets-view") {
+      writeHtml(response, ticketOpsPage);
       return;
     }
 
