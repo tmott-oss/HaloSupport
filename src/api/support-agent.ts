@@ -51,6 +51,7 @@ interface ChatwootEscalationResult {
 type SupportSurface = "public_website" | "authenticated_app" | "flutter_webview";
 type KnowledgeSet = "public_site" | "authenticated_app";
 type HumanSupportStatus = "ai_only" | "escalated";
+type SupportTicketStatus = "open" | "waiting_on_human" | "waiting_on_customer" | "resolved";
 
 loadLocalEnv();
 
@@ -62,9 +63,20 @@ interface ChatSession {
   userId?: string;
   accountId?: string;
   humanSupportStatus: HumanSupportStatus;
+  ticket?: SupportTicket;
   createdAt: string;
   updatedAt: string;
   messages: ChatTranscriptMessage[];
+}
+
+interface SupportTicket {
+  ticketId: string;
+  sessionId: string;
+  status: SupportTicketStatus;
+  escalationReason: string;
+  sourcePaths: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ChatTranscriptMessage {
@@ -944,6 +956,33 @@ function createChatSession(params: {
   return session;
 }
 
+function createOrUpdateSupportTicket(session: ChatSession, supportResponse: SupportResponse) {
+  if (!supportResponse.escalated) {
+    return undefined;
+  }
+
+  const now = new Date().toISOString();
+  const sourcePaths = supportResponse.sources.map((source) => source.path);
+  if (!session.ticket) {
+    session.ticket = {
+      ticketId: `ticket-${randomUUID()}`,
+      sessionId: session.sessionId,
+      status: "open",
+      escalationReason: supportResponse.escalationReason ?? "Escalation required.",
+      sourcePaths,
+      createdAt: now,
+      updatedAt: now
+    };
+    return session.ticket;
+  }
+
+  session.ticket.status = session.ticket.status === "resolved" ? "open" : session.ticket.status;
+  session.ticket.escalationReason = supportResponse.escalationReason ?? session.ticket.escalationReason;
+  session.ticket.sourcePaths = Array.from(new Set([...session.ticket.sourcePaths, ...sourcePaths]));
+  session.ticket.updatedAt = now;
+  return session.ticket;
+}
+
 async function loadStoredChatSessions() {
   sessionStoreReady ??= (async () => {
     try {
@@ -1002,10 +1041,42 @@ function parseStoredChatSession(value: unknown): ChatSession | undefined {
     userId: typeof rawSession.userId === "string" ? rawSession.userId : undefined,
     accountId: typeof rawSession.accountId === "string" ? rawSession.accountId : undefined,
     humanSupportStatus: rawSession.humanSupportStatus === "escalated" ? "escalated" : "ai_only",
+    ticket: parseStoredSupportTicket(rawSession.ticket, rawSession.sessionId),
     createdAt: typeof rawSession.createdAt === "string" ? rawSession.createdAt : new Date().toISOString(),
     updatedAt: typeof rawSession.updatedAt === "string" ? rawSession.updatedAt : new Date().toISOString(),
     messages
   };
+}
+
+function parseStoredSupportTicket(value: unknown, sessionId: string): SupportTicket | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const rawTicket = value as Partial<SupportTicket>;
+  if (typeof rawTicket.ticketId !== "string") {
+    return undefined;
+  }
+
+  return {
+    ticketId: rawTicket.ticketId,
+    sessionId,
+    status: normalizeTicketStatus(rawTicket.status),
+    escalationReason: typeof rawTicket.escalationReason === "string" ? rawTicket.escalationReason : "Escalation required.",
+    sourcePaths: Array.isArray(rawTicket.sourcePaths)
+      ? rawTicket.sourcePaths.filter((sourcePath): sourcePath is string => typeof sourcePath === "string")
+      : [],
+    createdAt: typeof rawTicket.createdAt === "string" ? rawTicket.createdAt : new Date().toISOString(),
+    updatedAt: typeof rawTicket.updatedAt === "string" ? rawTicket.updatedAt : new Date().toISOString()
+  };
+}
+
+function normalizeTicketStatus(value: unknown): SupportTicketStatus {
+  if (value === "waiting_on_human" || value === "waiting_on_customer" || value === "resolved" || value === "open") {
+    return value;
+  }
+
+  return "open";
 }
 
 function parseStoredTranscriptMessage(value: unknown): ChatTranscriptMessage | undefined {
@@ -1055,9 +1126,22 @@ function publicSession(session: ChatSession) {
     userId: session.userId,
     accountId: session.accountId,
     humanSupportStatus: session.humanSupportStatus,
+    ticket: session.ticket ? publicSupportTicket(session.ticket) : undefined,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     messageCount: session.messages.length
+  };
+}
+
+function publicSupportTicket(ticket: SupportTicket) {
+  return {
+    ticketId: ticket.ticketId,
+    sessionId: ticket.sessionId,
+    status: ticket.status,
+    escalationReason: ticket.escalationReason,
+    sourcePaths: ticket.sourcePaths,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt
   };
 }
 
@@ -1186,6 +1270,7 @@ function buildDebugConfig() {
     chatClientBuilt: existsSync(path.join(chatClientDistDir, "index.html")),
     sessions: {
       activeCount: chatSessions.size,
+      ticketCount: Array.from(chatSessions.values()).filter((session) => session.ticket).length,
       persistence: "local_json",
       storePath: path.relative(process.cwd(), chatSessionStorePath),
       storeExists: existsSync(chatSessionStorePath)
@@ -1306,6 +1391,7 @@ const server = createServer(async (request, response) => {
         createdAt: session.updatedAt,
         escalated: supportResponse.escalated
       });
+      const ticket = createOrUpdateSupportTicket(session, supportResponse);
       const chatwoot = await createChatwootEscalation(session, supportResponse);
       await saveChatSessions();
 
@@ -1319,7 +1405,8 @@ const server = createServer(async (request, response) => {
           confidence: supportResponse.confidence,
           sources: supportResponse.sources,
           slackDelivery: supportResponse.slackDelivery,
-          chatwoot
+          chatwoot,
+          ticket: ticket ? publicSupportTicket(ticket) : undefined
         }
       });
       return;
