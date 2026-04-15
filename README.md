@@ -83,6 +83,14 @@ Inspect one local ticket:
 curl http://localhost:3000/tickets/ticket-id-here
 ```
 
+Update local ticket status:
+
+```bash
+curl -X PATCH http://localhost:3000/tickets/ticket-id-here \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"resolved"}'
+```
+
 Ask a support question:
 
 ```bash
