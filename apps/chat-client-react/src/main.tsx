@@ -11,10 +11,9 @@ if (!root) {
 
 createRoot(root).render(
   <SupportChat
-    apiBaseUrl="http://localhost:3001"
     context={{
       surface: "public_website",
-      route: "/chat-client-dev"
+      route: "/chat-client"
     }}
   />
 );
