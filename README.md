@@ -67,6 +67,8 @@ curl http://localhost:3000/debug/config
 
 This reports whether Slack and Chatwoot are configured without exposing secret values.
 
+Local chat sessions are stored in `.halosight-runtime/chat-sessions.json` so test sessions survive backend restarts. This runtime folder is ignored by Git.
+
 Ask a support question:
 
 ```bash
