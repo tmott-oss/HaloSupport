@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -78,6 +78,8 @@ const PORT = Number(process.env.PORT ?? 3000);
 const LOW_CONFIDENCE_THRESHOLD = 0.35;
 const MAX_REQUEST_BYTES = 64 * 1024;
 const chatClientDistDir = path.join(process.cwd(), "apps", "chat-client-react", "dist");
+const runtimeDataDir = path.join(process.cwd(), ".halosight-runtime");
+const chatSessionStorePath = path.join(runtimeDataDir, "chat-sessions.json");
 const supportedKnowledgeExtensions = new Set([".md", ".json", ".yaml", ".yml"]);
 const stopWords = new Set([
   "about",
@@ -713,6 +715,8 @@ const supportTestPage = String.raw`<!doctype html>
 
 let knowledgeCache: Promise<KnowledgeDocument[]> | undefined;
 const chatSessions = new Map<string, ChatSession>();
+let sessionStoreReady: Promise<void> | undefined;
+let sessionWriteQueue = Promise.resolve();
 const chatwootProvider: ChatwootProvider = hasChatwootCredentials() ? new ChatwootApiProvider() : new MockChatwootProvider();
 
 async function loadKnowledgeBase() {
@@ -940,6 +944,92 @@ function createChatSession(params: {
   return session;
 }
 
+async function loadStoredChatSessions() {
+  sessionStoreReady ??= (async () => {
+    try {
+      const rawSessions = JSON.parse(await readFile(chatSessionStorePath, "utf8")) as unknown;
+      if (!Array.isArray(rawSessions)) {
+        return;
+      }
+
+      for (const rawSession of rawSessions) {
+        const session = parseStoredChatSession(rawSession);
+        if (session) {
+          chatSessions.set(session.sessionId, session);
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn("Unable to load stored chat sessions:", error);
+      }
+    }
+  })();
+
+  return sessionStoreReady;
+}
+
+async function saveChatSessions() {
+  await loadStoredChatSessions();
+  sessionWriteQueue = sessionWriteQueue.then(async () => {
+    await mkdir(runtimeDataDir, { recursive: true });
+    const sessions = Array.from(chatSessions.values());
+    await writeFile(chatSessionStorePath, JSON.stringify(sessions, null, 2), "utf8");
+  });
+  return sessionWriteQueue;
+}
+
+function parseStoredChatSession(value: unknown): ChatSession | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const rawSession = value as Partial<ChatSession>;
+  if (typeof rawSession.sessionId !== "string") {
+    return undefined;
+  }
+
+  const messages = Array.isArray(rawSession.messages)
+    ? rawSession.messages
+        .map((message) => parseStoredTranscriptMessage(message))
+        .filter((message): message is ChatTranscriptMessage => Boolean(message))
+    : [];
+
+  return {
+    sessionId: rawSession.sessionId,
+    surface: normalizeSurface(rawSession.surface),
+    knowledgeSet: normalizeKnowledgeSet(rawSession.knowledgeSet, normalizeSurface(rawSession.surface)),
+    route: typeof rawSession.route === "string" ? rawSession.route : undefined,
+    userId: typeof rawSession.userId === "string" ? rawSession.userId : undefined,
+    accountId: typeof rawSession.accountId === "string" ? rawSession.accountId : undefined,
+    humanSupportStatus: rawSession.humanSupportStatus === "escalated" ? "escalated" : "ai_only",
+    createdAt: typeof rawSession.createdAt === "string" ? rawSession.createdAt : new Date().toISOString(),
+    updatedAt: typeof rawSession.updatedAt === "string" ? rawSession.updatedAt : new Date().toISOString(),
+    messages
+  };
+}
+
+function parseStoredTranscriptMessage(value: unknown): ChatTranscriptMessage | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const rawMessage = value as Partial<ChatTranscriptMessage>;
+  if (
+    (rawMessage.role !== "user" && rawMessage.role !== "assistant") ||
+    typeof rawMessage.content !== "string" ||
+    typeof rawMessage.createdAt !== "string"
+  ) {
+    return undefined;
+  }
+
+  return {
+    role: rawMessage.role,
+    content: rawMessage.content,
+    createdAt: rawMessage.createdAt,
+    escalated: rawMessage.escalated === true ? true : undefined
+  };
+}
+
 function normalizeSurface(value: unknown): SupportSurface {
   if (value === "authenticated_app" || value === "flutter_webview" || value === "public_website") {
     return value;
@@ -1094,6 +1184,12 @@ function buildDebugConfig() {
     port: PORT,
     cwd: process.cwd(),
     chatClientBuilt: existsSync(path.join(chatClientDistDir, "index.html")),
+    sessions: {
+      activeCount: chatSessions.size,
+      persistence: "local_json",
+      storePath: path.relative(process.cwd(), chatSessionStorePath),
+      storeExists: existsSync(chatSessionStorePath)
+    },
     slack: {
       configured: Boolean(slackWebhookUrl),
       startsWithExpectedHost: slackWebhookUrl.startsWith("https://hooks.slack.com/services/"),
@@ -1171,13 +1267,16 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && requestPath === "/chat/session") {
+      await loadStoredChatSessions();
       const body = await readJsonBody(request);
       const session = createChatSession(body as Record<string, unknown>);
+      await saveChatSessions();
       writeJson(response, 201, { session: publicSession(session) });
       return;
     }
 
     if (request.method === "POST" && requestPath === "/chat/message") {
+      await loadStoredChatSessions();
       const body = await readJsonBody(request);
       const message = typeof (body as { message?: unknown }).message === "string" ? (body as { message: string }).message : "";
       if (!message.trim()) {
@@ -1200,6 +1299,7 @@ const server = createServer(async (request, response) => {
         escalated: supportResponse.escalated
       });
       const chatwoot = await createChatwootEscalation(session, supportResponse);
+      await saveChatSessions();
 
       writeJson(response, 200, {
         session: publicSession(session),
