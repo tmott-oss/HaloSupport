@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:staging": "npm run build && npm run build:chat-client",
     "check": "tsc --noEmit -p tsconfig.json",
     "inspect:deal": "tsx src/cli/run-deal-inspection.ts",
     "start:meeting-prep": "tsx src/cli/run-meeting-prep.ts",
     "start:call-summary": "tsx src/cli/run-call-summary.ts",
     "start:support-api": "tsx src/api/support-agent.ts",
+    "start:support-api:prod": "node dist/api/support-agent.js",
     "start:chat-client": "vite --host 127.0.0.1 --port 5173 apps/chat-client-react",
     "build:chat-client": "vite build apps/chat-client-react",
     "inspect:halosight-runtime": "tsx src/cli/inspect-halosight-runtime.ts",

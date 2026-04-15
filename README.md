@@ -47,6 +47,18 @@ Start the support API:
 npm run start:support-api
 ```
 
+Build for a staging deployment:
+
+```bash
+npm run build:staging
+```
+
+Start the compiled support API:
+
+```bash
+npm run start:support-api:prod
+```
+
 For local secrets, copy `.env.example` to `.env` and fill in private values:
 
 ```bash
