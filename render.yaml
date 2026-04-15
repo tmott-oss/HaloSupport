@@ -3,7 +3,7 @@ services:
     name: halosight-support-mvp
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build:staging
+    buildCommand: npm install --include=dev && npm run build:staging
     startCommand: npm run start:support-api:prod
     healthCheckPath: /health
     envVars:
