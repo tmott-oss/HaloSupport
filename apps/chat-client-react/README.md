@@ -63,4 +63,6 @@ The component expects the wrapper service to expose:
 - `POST /chat/session`
 - `POST /chat/message`
 
+When served from the backend at `/chat-client`, the client calls the API on the same origin. This lets the same built bundle work locally and on staging hosts such as Render.
+
 The client stores the active session id in `localStorage` so browser refreshes can continue the same local test session.
