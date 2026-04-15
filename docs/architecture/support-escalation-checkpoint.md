@@ -11,6 +11,8 @@ The current system is intentionally simple. It proves the core loop:
 3. Answer only when the knowledge base supports the answer.
 4. Escalate when confidence is low or the question touches restricted claims.
 5. Notify the human support path.
+6. Create a local support ticket for escalated conversations.
+7. Let support operators inspect and update ticket status locally.
 
 ## What Is Built Now
 
@@ -25,6 +27,11 @@ Current endpoints:
 - `POST /chat/message`
 - `GET /support-test`
 - `GET /chat-client`
+- `GET /debug/config`
+- `GET /tickets`
+- `GET /tickets/:ticketId`
+- `PATCH /tickets/:ticketId`
+- `GET /tickets-view`
 
 The backend runs locally with:
 
@@ -81,7 +88,7 @@ Slack delivery is now validated strictly. The backend only marks Slack delivery 
 
 ### Chat Sessions
 
-The chat session API tracks an in-memory support session with:
+The chat session API tracks a support session with:
 
 - session ID
 - surface, such as public website
@@ -89,8 +96,68 @@ The chat session API tracks an in-memory support session with:
 - knowledge set
 - human support status
 - transcript messages
+- local ticket metadata when escalation occurs
 
-This is currently local and in-memory. Restarting the backend clears active sessions.
+Sessions are persisted locally in:
+
+```text
+.halosight-runtime/chat-sessions.json
+```
+
+This is still an MVP persistence layer, not the final production database. It is useful because local conversations and tickets survive backend restarts during testing.
+
+### Local Ticket System
+
+Escalated chat sessions now create or reuse a local support ticket.
+
+Current ticket fields:
+
+- ticket ID
+- session ID
+- status
+- escalation reason
+- source paths
+- created timestamp
+- updated timestamp
+
+Supported ticket statuses:
+
+- open
+- waiting_on_human
+- waiting_on_customer
+- resolved
+
+Ticket data is stored with the local chat session record. This provides a simple support-ticket model before real Chatwoot ticket workflow is active.
+
+### Local Ticket Operations Page
+
+The backend serves a local support-ops page at:
+
+```text
+http://localhost:3001/tickets-view
+```
+
+The page supports:
+
+- listing local tickets
+- selecting a ticket
+- viewing escalation reason
+- viewing source paths
+- viewing transcript
+- changing ticket status
+- saving the status update through the backend API
+
+This is a local operator test surface. It is not yet a production admin interface.
+
+### Safe Debug Endpoint
+
+The backend exposes:
+
+```text
+http://localhost:3001/debug/config
+```
+
+This reports safe configuration state without exposing secrets. It includes Slack webhook shape checks, Chatwoot mode, session count, ticket count, and local store status.
 
 ### React Chat Client
 
@@ -135,12 +202,13 @@ The following are not production-ready yet:
 - session persistence
 - real Chatwoot conversation creation
 - human reply synchronization
-- ticket lifecycle state
 - authenticated user/account context
 - production knowledge retrieval
 - production deployment
 - website embed packaging
 - security controls around public API exposure
+
+Session persistence and ticket lifecycle now exist locally, but they are not production persistence or production ticketing yet.
 
 ## Current Local Test Flow
 
@@ -180,13 +248,47 @@ Expected result:
 - chat UI marks the response as escalated
 - Slack receives an escalation message
 - backend response shows Slack delivery as `delivered: true`
+- local ticket is created with status `open`
+- ticket appears in `http://localhost:3001/tickets-view`
+
+7. Open local ticket operations:
+
+```text
+http://localhost:3001/tickets-view
+```
+
+8. Select the ticket and update its status.
+
+Expected result:
+
+- ticket detail loads with transcript
+- status can be changed to `waiting_on_human`, `waiting_on_customer`, `open`, or `resolved`
+- status persists after refresh and backend restart
+
+## Shareable Links
+
+The local app links only work on the machine running the backend. They are useful for live screen share or local demo:
+
+```text
+http://localhost:3001/chat-client
+http://localhost:3001/tickets-view
+http://localhost:3001/debug/config
+```
+
+For a CTO review outside the local machine, share the GitHub document after this branch is merged:
+
+```text
+https://github.com/tmott-oss/HaloSupport/blob/main/docs/architecture/support-escalation-checkpoint.md
+```
+
+For an interactive remote demo, the backend and chat/ticket pages need to be deployed first.
 
 ## Recommended Next Milestones
 
 ### Milestone 1: Stabilize Local MVP
 
 - Keep `.env` loading simple and documented.
-- Add a small health/debug endpoint for local environment validation.
+- Keep the safe health/debug endpoint for local environment validation.
 - Add automated tests for low-confidence and restricted-claim escalation.
 - Keep Slack as the temporary human notification channel.
 
@@ -199,13 +301,10 @@ Expected result:
 
 ### Milestone 3: Support Ticket Model
 
-- Define a minimal ticket state model:
-  - open
-  - waiting_on_human
-  - waiting_on_customer
-  - resolved
-- Persist ticket/session records.
-- Connect escalation reason and transcript to the ticket.
+- Move the local ticket/session store to production persistence.
+- Add ticket ownership, priority, and internal notes.
+- Decide whether Chatwoot becomes the source of truth for ticket state.
+- Sync local ticket status with Chatwoot conversation status.
 
 ### Milestone 4: Website Support Tab
 
@@ -220,6 +319,7 @@ Expected result:
 - Store secrets in the deployment platform, not in local files.
 - Add logging for escalation outcomes.
 - Add monitoring for Slack and Chatwoot delivery failures.
+- Protect ticket operations behind authentication before any public deployment.
 
 ## Engineering Notes
 
@@ -230,4 +330,4 @@ The current architecture keeps the AI wrapper separate from Chatwoot. This is th
 - the wrapper can enforce Halosight-specific knowledge and guardrails
 - Slack can remain an interim alerting path while Chatwoot is wired up
 
-The next engineering priority should be persistence and real Chatwoot escalation, not more AI complexity.
+The next engineering priority should be production persistence, authentication for support operations, and real Chatwoot escalation, not more AI complexity.
