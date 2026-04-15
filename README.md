@@ -79,6 +79,8 @@ curl http://localhost:3000/debug/config
 
 This reports whether Slack and Chatwoot are configured without exposing secret values.
 
+Set `SUPPORT_OPS_USERNAME` and `SUPPORT_OPS_PASSWORD` to protect local support operations routes with Basic Auth. When those values are set, `/tickets-view`, `/tickets`, `/tickets/:ticketId`, and `/debug/config` require credentials. Chat and `/health` remain public.
+
 Local chat sessions are stored in `.halosight-runtime/chat-sessions.json` so test sessions survive backend restarts. This runtime folder is ignored by Git.
 If `POST /chat/message` receives a `sessionId` that cannot be found, the API returns `404` instead of silently creating a replacement session.
 When a chat message escalates, the API creates or reuses a local ticket on the session with an `open` status, escalation reason, and source paths. This is an MVP bridge toward a real Chatwoot ticket workflow.

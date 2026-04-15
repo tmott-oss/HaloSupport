@@ -1837,9 +1837,51 @@ function contentTypeFor(filePath: string) {
   return "application/octet-stream";
 }
 
+function isProtectedOpsRoute(requestPath: string) {
+  return requestPath === "/tickets-view" || requestPath === "/debug/config" || requestPath === "/tickets" || requestPath.startsWith("/tickets/");
+}
+
+function requireOpsAuth(request: IncomingMessage, response: ServerResponse) {
+  const username = process.env.SUPPORT_OPS_USERNAME;
+  const password = process.env.SUPPORT_OPS_PASSWORD;
+  if (!username || !password) {
+    return true;
+  }
+
+  const header = request.headers.authorization ?? "";
+  const [scheme, encodedCredentials] = header.split(" ");
+  if (scheme !== "Basic" || !encodedCredentials) {
+    writeAuthRequired(response);
+    return false;
+  }
+
+  const credentials = Buffer.from(encodedCredentials, "base64").toString("utf8");
+  const separatorIndex = credentials.indexOf(":");
+  const requestUsername = credentials.slice(0, separatorIndex);
+  const requestPassword = credentials.slice(separatorIndex + 1);
+  if (requestUsername !== username || requestPassword !== password) {
+    writeAuthRequired(response);
+    return false;
+  }
+
+  return true;
+}
+
+function writeAuthRequired(response: ServerResponse) {
+  response.writeHead(401, {
+    "Content-Type": "application/json",
+    "WWW-Authenticate": 'Basic realm="Halosight Support Ops"'
+  });
+  response.end(JSON.stringify({ error: "Authentication required." }, null, 2));
+}
+
 const server = createServer(async (request, response) => {
   try {
     const requestPath = request.url?.split("?")[0] ?? "";
+
+    if (isProtectedOpsRoute(requestPath) && !requireOpsAuth(request, response)) {
+      return;
+    }
 
     if (request.method === "GET" && (requestPath === "/" || requestPath === "/support-test")) {
       writeHtml(response, supportTestPage);
