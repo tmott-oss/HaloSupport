@@ -1284,8 +1284,16 @@ const server = createServer(async (request, response) => {
         return;
       }
 
-      const sessionId = typeof (body as { sessionId?: unknown }).sessionId === "string" ? (body as { sessionId: string }).sessionId : "";
-      const session = chatSessions.get(sessionId) ?? createChatSession((body as { context?: unknown }).context ?? {});
+      const sessionId = typeof (body as { sessionId?: unknown }).sessionId === "string" ? (body as { sessionId: string }).sessionId.trim() : "";
+      const session = sessionId ? chatSessions.get(sessionId) : createChatSession((body as { context?: unknown }).context ?? {});
+      if (!session) {
+        writeJson(response, 404, {
+          error: "sessionId was not found. Create a new session with POST /chat/session before sending messages.",
+          sessionId
+        });
+        return;
+      }
+
       const now = new Date().toISOString();
       session.messages.push({ role: "user", content: message, createdAt: now });
 
