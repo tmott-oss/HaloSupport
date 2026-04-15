@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: halosight-support-mvp
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build:staging
+    startCommand: npm run start:support-api:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: CHATWOOT_BASE_URL
+        sync: false
+      - key: CHATWOOT_ACCOUNT_ID
+        sync: false
+      - key: CHATWOOT_INBOX_ID
+        sync: false
+      - key: CHATWOOT_API_TOKEN
+        sync: false
