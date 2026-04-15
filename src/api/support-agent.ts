@@ -1079,6 +1079,14 @@ function normalizeTicketStatus(value: unknown): SupportTicketStatus {
   return "open";
 }
 
+function parseTicketStatus(value: unknown): SupportTicketStatus | undefined {
+  if (value === "waiting_on_human" || value === "waiting_on_customer" || value === "resolved" || value === "open") {
+    return value;
+  }
+
+  return undefined;
+}
+
 function parseStoredTranscriptMessage(value: unknown): ChatTranscriptMessage | undefined {
   if (!value || typeof value !== "object") {
     return undefined;
@@ -1161,6 +1169,22 @@ function findSupportTicket(ticketId: string) {
     return undefined;
   }
 
+  return {
+    ...publicSupportTicket(session.ticket),
+    session: publicSession(session),
+    transcript: session.messages
+  };
+}
+
+function updateSupportTicketStatus(ticketId: string, status: SupportTicketStatus) {
+  const session = Array.from(chatSessions.values()).find((candidate) => candidate.ticket?.ticketId === ticketId);
+  if (!session?.ticket) {
+    return undefined;
+  }
+
+  session.ticket.status = status;
+  session.ticket.updatedAt = new Date().toISOString();
+  session.updatedAt = session.ticket.updatedAt;
   return {
     ...publicSupportTicket(session.ticket),
     session: publicSession(session),
@@ -1389,6 +1413,29 @@ const server = createServer(async (request, response) => {
         return;
       }
 
+      writeJson(response, 200, { ticket });
+      return;
+    }
+
+    if (request.method === "PATCH" && requestPath.startsWith("/tickets/")) {
+      await loadStoredChatSessions();
+      const ticketId = decodeURIComponent(requestPath.replace(/^\/tickets\//, "")).trim();
+      const body = await readJsonBody(request);
+      const status = parseTicketStatus((body as { status?: unknown }).status);
+      if (!status) {
+        writeJson(response, 400, {
+          error: "status must be one of: open, waiting_on_human, waiting_on_customer, resolved."
+        });
+        return;
+      }
+
+      const ticket = updateSupportTicketStatus(ticketId, status);
+      if (!ticket) {
+        writeJson(response, 404, { error: "ticketId was not found.", ticketId });
+        return;
+      }
+
+      await saveChatSessions();
       writeJson(response, 200, { ticket });
       return;
     }
