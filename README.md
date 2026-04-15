@@ -71,6 +71,18 @@ Local chat sessions are stored in `.halosight-runtime/chat-sessions.json` so tes
 If `POST /chat/message` receives a `sessionId` that cannot be found, the API returns `404` instead of silently creating a replacement session.
 When a chat message escalates, the API creates or reuses a local ticket on the session with an `open` status, escalation reason, and source paths. This is an MVP bridge toward a real Chatwoot ticket workflow.
 
+List local tickets:
+
+```bash
+curl http://localhost:3000/tickets
+```
+
+Inspect one local ticket:
+
+```bash
+curl http://localhost:3000/tickets/ticket-id-here
+```
+
 Ask a support question:
 
 ```bash

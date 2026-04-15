@@ -1145,6 +1145,29 @@ function publicSupportTicket(ticket: SupportTicket) {
   };
 }
 
+function listSupportTickets() {
+  return Array.from(chatSessions.values())
+    .filter((session): session is ChatSession & { ticket: SupportTicket } => Boolean(session.ticket))
+    .map((session) => ({
+      ...publicSupportTicket(session.ticket),
+      session: publicSession(session)
+    }))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+function findSupportTicket(ticketId: string) {
+  const session = Array.from(chatSessions.values()).find((candidate) => candidate.ticket?.ticketId === ticketId);
+  if (!session?.ticket) {
+    return undefined;
+  }
+
+  return {
+    ...publicSupportTicket(session.ticket),
+    session: publicSession(session),
+    transcript: session.messages
+  };
+}
+
 async function createChatwootEscalation(
   session: ChatSession,
   supportResponse: SupportResponse
@@ -1348,6 +1371,25 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET" && requestPath === "/debug/config") {
       writeJson(response, 200, buildDebugConfig());
+      return;
+    }
+
+    if (request.method === "GET" && requestPath === "/tickets") {
+      await loadStoredChatSessions();
+      writeJson(response, 200, { tickets: listSupportTickets() });
+      return;
+    }
+
+    if (request.method === "GET" && requestPath.startsWith("/tickets/")) {
+      await loadStoredChatSessions();
+      const ticketId = decodeURIComponent(requestPath.replace(/^\/tickets\//, "")).trim();
+      const ticket = findSupportTicket(ticketId);
+      if (!ticket) {
+        writeJson(response, 404, { error: "ticketId was not found.", ticketId });
+        return;
+      }
+
+      writeJson(response, 200, { ticket });
       return;
     }
 
