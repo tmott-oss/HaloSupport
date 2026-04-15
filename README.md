@@ -91,6 +91,12 @@ curl -X PATCH http://localhost:3000/tickets/ticket-id-here \
   -d '{"status":"resolved"}'
 ```
 
+Open the local ticket operations page:
+
+```text
+http://localhost:3000/tickets-view
+```
+
 Ask a support question:
 
 ```bash
