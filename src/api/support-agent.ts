@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { ChatwootApiProvider, hasChatwootCredentials, MockChatwootProvider } from "../providers/chatwoot.js";
+import { ChatwootApiProvider, chatwootConfigFromEnv, hasChatwootCredentials, MockChatwootProvider } from "../providers/chatwoot.js";
 import type { ChatwootConversation, ChatwootProvider } from "../providers/interfaces.js";
 
 interface KnowledgeDocument {
@@ -1079,6 +1079,37 @@ function writeHtml(response: ServerResponse, html: string) {
   response.end(html);
 }
 
+function buildDebugConfig() {
+  const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL?.trim() ?? "";
+  const chatwootConfig = chatwootConfigFromEnv();
+  const chatwootCredentialStatus = {
+    baseUrl: Boolean(chatwootConfig.baseUrl),
+    accountId: Boolean(chatwootConfig.accountId),
+    inboxId: Boolean(chatwootConfig.inboxId),
+    apiToken: Boolean(chatwootConfig.apiToken)
+  };
+
+  return {
+    status: "ok",
+    port: PORT,
+    cwd: process.cwd(),
+    chatClientBuilt: existsSync(path.join(chatClientDistDir, "index.html")),
+    slack: {
+      configured: Boolean(slackWebhookUrl),
+      startsWithExpectedHost: slackWebhookUrl.startsWith("https://hooks.slack.com/services/"),
+      last8: slackWebhookUrl ? slackWebhookUrl.slice(-8) : null,
+      containsWhitespace: /\s/.test(slackWebhookUrl),
+      containsDocsHost: slackWebhookUrl.includes("docs.slack.dev") || slackWebhookUrl.includes("api.slack.com"),
+      looksLikeWebhook: /^https:\/\/hooks\.slack\.com\/services\/[^/\s]+\/[^/\s]+\/[^/\s]+$/.test(slackWebhookUrl)
+    },
+    chatwoot: {
+      mode: hasChatwootCredentials(chatwootConfig) ? "api" : "mock",
+      configured: hasChatwootCredentials(chatwootConfig),
+      credentials: chatwootCredentialStatus
+    }
+  };
+}
+
 async function serveChatClient(requestPath: string, response: ServerResponse, includeBody = true) {
   const relativePath =
     requestPath === "/chat-client" || requestPath === "/chat-client/"
@@ -1131,6 +1162,11 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET" && requestPath === "/health") {
       writeJson(response, 200, { status: "ok" });
+      return;
+    }
+
+    if (request.method === "GET" && requestPath === "/debug/config") {
+      writeJson(response, 200, buildDebugConfig());
       return;
     }
 
