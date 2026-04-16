@@ -100,6 +100,7 @@ CHATWOOT_API_TOKEN=...
 Current behavior:
 
 - If Chatwoot variables are missing, the backend uses the mock Chatwoot provider.
+- If Chatwoot variables are present, escalation creates a real Chatwoot contact and conversation.
 - If `SLACK_WEBHOOK_URL` is present and valid, escalation posts to Slack.
 - `/debug/config` verifies configuration without exposing secrets.
 
@@ -208,7 +209,7 @@ Expected:
 
 - deploy backend plus built chat client to staging
 - configure Slack webhook
-- keep Chatwoot mocked
+- configure Chatwoot credentials when ready
 - protect or limit ticket operations access
 - share the staging chat URL and GitHub checkpoint doc
 
@@ -221,10 +222,10 @@ Expected:
 
 ### Phase 3: Chatwoot Integration
 
-- configure real Chatwoot credentials
-- implement real conversation creation
-- forward transcript and source context
+- validate real Chatwoot contact and conversation creation in staging
+- confirm transcript and source context appear in Chatwoot
 - map local ticket status to Chatwoot conversation status or make Chatwoot the source of truth
+- add human reply synchronization path back to the Halosight chat client
 
 ### Phase 4: Website Embed
 
@@ -251,4 +252,4 @@ https://github.com/tmott-oss/HaloSupport/blob/main/docs/architecture/deployment-
 
 ## Recommendation
 
-Use a staging deployment first, not production. Keep Slack escalation active, keep Chatwoot mocked until credentials and workflow are ready, and protect ticket operations before sharing outside the core team.
+Use a staging deployment first, not production. Keep Slack escalation active while validating Chatwoot, and protect ticket operations before sharing outside the core team.
