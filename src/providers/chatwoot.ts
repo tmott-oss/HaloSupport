@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type {
   ChatwootAppendMessageInput,
   ChatwootConversation,
@@ -10,6 +12,26 @@ export interface ChatwootApiConfig {
   accountId?: string;
   inboxId?: string;
   apiToken?: string;
+}
+
+interface ChatwootContactResponse {
+  payload?: unknown;
+  id?: unknown;
+  contact_inboxes?: unknown;
+}
+
+interface ChatwootConversationResponse {
+  id?: unknown;
+  status?: unknown;
+}
+
+interface ChatwootMessageResponse {
+  id?: unknown;
+}
+
+interface ParsedChatwootContact {
+  id: number;
+  sourceId: string;
 }
 
 export class MockChatwootProvider implements ChatwootProvider {
@@ -53,25 +75,213 @@ export class MockChatwootProvider implements ChatwootProvider {
 export class ChatwootApiProvider implements ChatwootProvider {
   constructor(private readonly config: ChatwootApiConfig = chatwootConfigFromEnv()) {}
 
-  async createConversation(_input: ChatwootCreateConversationInput): Promise<ChatwootConversation> {
+  async createConversation(input: ChatwootCreateConversationInput): Promise<ChatwootConversation> {
     this.assertConfigured();
-    throw new Error("Chatwoot conversation creation is not implemented yet. The adapter boundary is ready for API wiring.");
+
+    const contact = await this.createContact(input);
+    const conversation = await this.request<ChatwootConversationResponse>(
+      `/api/v1/accounts/${this.accountId}/conversations`,
+      {
+        method: "POST",
+        body: {
+          source_id: contact.sourceId,
+          inbox_id: this.inboxId,
+          contact_id: contact.id,
+          status: "open",
+          custom_attributes: {
+            halosight_session_id: input.sessionId,
+            halosight_source: input.source,
+            escalation_reason: input.escalationReason,
+            subject: input.subject,
+            ...input.customAttributes
+          }
+        }
+      }
+    );
+    const conversationId = this.readNumber(conversation.id, "Chatwoot conversation id");
+
+    await this.appendMessage({
+      conversationId: String(conversationId),
+      messageType: "private_note",
+      content: this.buildEscalationNote(input)
+    });
+
+    return {
+      conversationId: String(conversationId),
+      status: this.normalizeStatus(conversation.status),
+      url: `${this.baseUrl}/app/accounts/${this.accountId}/conversations/${conversationId}`
+    };
   }
 
-  async appendMessage(_input: ChatwootAppendMessageInput): Promise<{ messageId?: string }> {
+  async appendMessage(input: ChatwootAppendMessageInput): Promise<{ messageId?: string }> {
     this.assertConfigured();
-    throw new Error("Chatwoot message append is not implemented yet. The adapter boundary is ready for API wiring.");
+    const message = await this.request<ChatwootMessageResponse>(
+      `/api/v1/accounts/${this.accountId}/conversations/${encodeURIComponent(input.conversationId)}/messages`,
+      {
+        method: "POST",
+        body: {
+          content: input.content,
+          message_type: input.messageType === "incoming" ? "incoming" : "outgoing",
+          private: input.messageType === "private_note",
+          content_type: "text"
+        }
+      }
+    );
+
+    return {
+      messageId: typeof message.id === "number" || typeof message.id === "string" ? String(message.id) : undefined
+    };
   }
 
-  async getConversation(_conversationId: string): Promise<ChatwootConversation> {
+  async getConversation(conversationId: string): Promise<ChatwootConversation> {
     this.assertConfigured();
-    throw new Error("Chatwoot conversation lookup is not implemented yet. The adapter boundary is ready for API wiring.");
+    const conversation = await this.request<ChatwootConversationResponse>(
+      `/api/v1/accounts/${this.accountId}/conversations/${encodeURIComponent(conversationId)}`
+    );
+
+    return {
+      conversationId,
+      status: this.normalizeStatus(conversation.status),
+      url: `${this.baseUrl}/app/accounts/${this.accountId}/conversations/${encodeURIComponent(conversationId)}`
+    };
   }
 
   private assertConfigured() {
     if (!this.config.baseUrl || !this.config.accountId || !this.config.inboxId || !this.config.apiToken) {
       throw new Error("Missing Chatwoot configuration. Set CHATWOOT_BASE_URL, CHATWOOT_ACCOUNT_ID, CHATWOOT_INBOX_ID, and CHATWOOT_API_TOKEN.");
     }
+  }
+
+  private async createContact(input: ChatwootCreateConversationInput): Promise<ParsedChatwootContact> {
+    const contact = await this.request<ChatwootContactResponse>(
+      `/api/v1/accounts/${this.accountId}/contacts`,
+      {
+        method: "POST",
+        body: {
+          inbox_id: this.inboxId,
+          identifier: input.contact?.identifier,
+          name: input.contact?.name ?? `Halosight Support Visitor ${input.sessionId.slice(0, 8)}`,
+          email: input.contact?.email,
+          phone_number: input.contact?.phoneNumber,
+          custom_attributes: {
+            halosight_session_id: input.sessionId,
+            halosight_source: input.source,
+            ...input.contact?.customAttributes
+          }
+        }
+      }
+    );
+
+    return this.parseContact(contact, input.sessionId);
+  }
+
+  private parseContact(response: ChatwootContactResponse, sessionId: string): ParsedChatwootContact {
+    const contact = Array.isArray(response.payload) ? response.payload[0] : response.payload ?? response;
+    if (!contact || typeof contact !== "object") {
+      throw new Error("Chatwoot contact response did not include a contact.");
+    }
+
+    const contactRecord = contact as { id?: unknown; contact_inboxes?: unknown };
+    const id = this.readNumber(contactRecord.id, "Chatwoot contact id");
+    const sourceId = this.readSourceId(contactRecord.contact_inboxes) ?? `halosight-session-${sessionId}-${randomUUID()}`;
+
+    return {
+      id,
+      sourceId
+    };
+  }
+
+  private readSourceId(contactInboxes: unknown) {
+    if (!Array.isArray(contactInboxes)) {
+      return undefined;
+    }
+
+    const firstInbox = contactInboxes.find((item) => item && typeof item === "object") as { source_id?: unknown } | undefined;
+    return typeof firstInbox?.source_id === "string" ? firstInbox.source_id : undefined;
+  }
+
+  private buildEscalationNote(input: ChatwootCreateConversationInput) {
+    const transcript = input.transcript
+      .map((message) => {
+        const timestamp = message.createdAt ? ` (${message.createdAt})` : "";
+        return `[${message.role}${timestamp}]\n${message.content}`;
+      })
+      .join("\n\n");
+
+    return [
+      `Halosight escalation${input.subject ? `: ${input.subject}` : ""}`,
+      "",
+      `Reason: ${input.escalationReason}`,
+      "",
+      "Transcript:",
+      transcript || "No transcript was provided.",
+      "",
+      "Context:",
+      JSON.stringify(
+        {
+          sessionId: input.sessionId,
+          source: input.source,
+          customAttributes: input.customAttributes
+        },
+        null,
+        2
+      )
+    ].join("\n");
+  }
+
+  private async request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: options.method ?? "GET",
+      headers: {
+        "Content-Type": "application/json",
+        api_access_token: this.apiToken
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`Chatwoot API failed: ${response.status} ${text.slice(0, 300)}`);
+    }
+
+    const body = text ? JSON.parse(text) as T : ({} as T);
+    return body;
+  }
+
+  private readNumber(value: unknown, label: string) {
+    if (typeof value === "number") {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+      return Number(value);
+    }
+
+    throw new Error(`${label} was missing from API response.`);
+  }
+
+  private normalizeStatus(value: unknown): ChatwootConversation["status"] {
+    if (value === "open" || value === "pending" || value === "resolved") {
+      return value;
+    }
+
+    return "open";
+  }
+
+  private get baseUrl() {
+    return this.config.baseUrl!.replace(/\/$/, "");
+  }
+
+  private get accountId() {
+    return encodeURIComponent(this.config.accountId!);
+  }
+
+  private get inboxId() {
+    return Number(this.config.inboxId);
+  }
+
+  private get apiToken() {
+    return this.config.apiToken!;
   }
 }
 

@@ -147,7 +147,7 @@ The page supports:
 - changing ticket status
 - saving the status update through the backend API
 
-This is a local operator test surface. It is not yet a production admin interface.
+This is a local/staging operator test surface. It is not yet a production admin interface.
 
 ### Safe Debug Endpoint
 
@@ -181,7 +181,7 @@ npm run build:chat-client
 
 The current client is a local integration test surface. It is the starting point for a future embeddable website support tab.
 
-### Chatwoot Adapter Skeleton
+### Chatwoot Escalation
 
 The repo includes a Chatwoot provider boundary:
 
@@ -191,16 +191,15 @@ The repo includes a Chatwoot provider boundary:
 
 Current state:
 
-- mock Chatwoot escalation can create a mock conversation object
-- real Chatwoot API provider is scaffolded
-- production credentials and real API behavior are not active yet
+- if Chatwoot credentials are not configured, mock Chatwoot escalation creates a mock conversation object
+- if Chatwoot credentials are configured, the backend creates a real Chatwoot contact and conversation
+- escalation transcript and context are posted into Chatwoot as a private note
+- Chatwoot conversation URL is returned in the backend escalation response
 
 ## What Is Still Mocked
 
 The following are not production-ready yet:
 
-- session persistence
-- real Chatwoot conversation creation
 - human reply synchronization
 - authenticated user/account context
 - production knowledge retrieval
@@ -208,7 +207,7 @@ The following are not production-ready yet:
 - website embed packaging
 - security controls around public API exposure
 
-Session persistence and ticket lifecycle now exist locally, but they are not production persistence or production ticketing yet.
+Session persistence and ticket lifecycle now exist locally/staging, but they are not production persistence or production ticketing yet. Chatwoot conversation creation is real when credentials are configured, but human reply synchronization is not wired back into the Halosight chat client yet.
 
 ## Current Local Test Flow
 
@@ -294,10 +293,10 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 
 ### Milestone 2: Real Chatwoot Escalation
 
-- Configure Chatwoot credentials through `.env`.
-- Create real Chatwoot contacts and conversations on escalation.
-- Forward transcript and source context into Chatwoot.
-- Return the Chatwoot conversation URL to the backend response.
+- Validate Chatwoot credentials in staging.
+- Confirm real Chatwoot contacts and conversations are created on escalation.
+- Confirm transcript and source context are visible to support agents.
+- Decide whether Slack remains as a parallel notification after Chatwoot is live.
 
 ### Milestone 3: Support Ticket Model
 
@@ -330,4 +329,4 @@ The current architecture keeps the AI wrapper separate from Chatwoot. This is th
 - the wrapper can enforce Halosight-specific knowledge and guardrails
 - Slack can remain an interim alerting path while Chatwoot is wired up
 
-The next engineering priority should be production persistence, authentication for support operations, and real Chatwoot escalation, not more AI complexity.
+The next engineering priority should be production persistence, support-ops authentication hardening, and Chatwoot reply/status synchronization, not more AI complexity.
