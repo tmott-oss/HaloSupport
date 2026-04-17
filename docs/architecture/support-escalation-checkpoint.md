@@ -195,6 +195,13 @@ Current state:
 - if Chatwoot credentials are configured, the backend creates a real Chatwoot contact and conversation
 - escalation transcript and context are posted into Chatwoot as a private note
 - Chatwoot conversation URL is returned in the backend escalation response
+- verified in Render staging on April 17, 2026 with a real Chatwoot conversation created in account `161157`
+
+Verified staging result:
+
+- Chatwoot contact name: `Halosight Support Visitor {session prefix}`
+- Chatwoot conversation status: `open`
+- private note includes escalation reason, transcript, session ID, source, route, and knowledge set
 
 ## What Is Still Mocked
 
@@ -247,6 +254,7 @@ Expected result:
 - chat UI marks the response as escalated
 - Slack receives an escalation message
 - backend response shows Slack delivery as `delivered: true`
+- Chatwoot creates a real open conversation when credentials are configured
 - local ticket is created with status `open`
 - ticket appears in `http://localhost:3001/tickets-view`
 
@@ -293,17 +301,17 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 
 ### Milestone 2: Real Chatwoot Escalation
 
-- Validate Chatwoot credentials in staging.
-- Confirm real Chatwoot contacts and conversations are created on escalation.
-- Confirm transcript and source context are visible to support agents.
+- Keep validating Chatwoot credentials in staging as environments change.
+- Confirm real Chatwoot contacts and conversations are created on escalation after each deployment.
+- Confirm transcript and source context remain visible to support agents.
 - Decide whether Slack remains as a parallel notification after Chatwoot is live.
 
 ### Milestone 3: Support Ticket Model
 
-- Move the local ticket/session store to production persistence.
-- Add ticket ownership, priority, and internal notes.
 - Decide whether Chatwoot becomes the source of truth for ticket state.
-- Sync local ticket status with Chatwoot conversation status.
+- If yes, reduce local tickets to debug/cache metadata and avoid building a parallel ticketing system.
+- If no, move the local ticket/session store to production persistence and sync with Chatwoot.
+- Add ownership, priority, and internal notes only after the source-of-truth decision.
 
 ### Milestone 4: Website Support Tab
 
@@ -329,4 +337,4 @@ The current architecture keeps the AI wrapper separate from Chatwoot. This is th
 - the wrapper can enforce Halosight-specific knowledge and guardrails
 - Slack can remain an interim alerting path while Chatwoot is wired up
 
-The next engineering priority should be production persistence, support-ops authentication hardening, and Chatwoot reply/status synchronization, not more AI complexity.
+The next engineering priority should be deciding Chatwoot as the support-ticket source of truth, then wiring Chatwoot reply/status synchronization. Avoid adding more AI complexity until the support workflow is stable.
