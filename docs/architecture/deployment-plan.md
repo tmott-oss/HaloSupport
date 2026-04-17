@@ -101,6 +101,7 @@ Current behavior:
 
 - If Chatwoot variables are missing, the backend uses the mock Chatwoot provider.
 - If Chatwoot variables are present, escalation creates a real Chatwoot contact and conversation.
+- Real Chatwoot escalation was verified in Render staging on April 17, 2026.
 - If `SLACK_WEBHOOK_URL` is present and valid, escalation posts to Slack.
 - `/debug/config` verifies configuration without exposing secrets.
 
@@ -184,6 +185,8 @@ Expected:
 - escalated response
 - Slack message delivered
 - local ticket created
+- real Chatwoot conversation created when Chatwoot credentials are configured
+- Chatwoot private note includes transcript and escalation context
 
 4. Open:
 
@@ -222,9 +225,10 @@ Expected:
 
 ### Phase 3: Chatwoot Integration
 
-- validate real Chatwoot contact and conversation creation in staging
-- confirm transcript and source context appear in Chatwoot
-- map local ticket status to Chatwoot conversation status or make Chatwoot the source of truth
+- keep validating real Chatwoot contact and conversation creation in staging
+- keep confirming transcript and source context appear in Chatwoot
+- choose whether Chatwoot becomes the source of truth for ticket status
+- map local ticket status to Chatwoot conversation status only if local tickets remain authoritative
 - add human reply synchronization path back to the Halosight chat client
 
 ### Phase 4: Website Embed
@@ -252,4 +256,4 @@ https://github.com/tmott-oss/HaloSupport/blob/main/docs/architecture/deployment-
 
 ## Recommendation
 
-Use a staging deployment first, not production. Keep Slack escalation active while validating Chatwoot, and protect ticket operations before sharing outside the core team.
+Use staging for continued validation before production. Chatwoot escalation is now verified in staging; the next architectural decision is whether Chatwoot becomes the primary ticket source of truth. Keep Slack escalation active until support operations confirms whether they still want parallel Slack notifications.
