@@ -85,6 +85,16 @@ Local chat sessions are stored in `.halosight-runtime/chat-sessions.json` so tes
 If `POST /chat/message` receives a `sessionId` that cannot be found, the API returns `404` instead of silently creating a replacement session.
 When a chat message escalates, the API creates or reuses a local ticket on the session with an `open` status, escalation reason, and source paths. This is an MVP bridge toward a real Chatwoot ticket workflow.
 
+For deployed environments, set `DATABASE_URL` to use Postgres for durable chat sessions, transcripts, tickets, and Chatwoot conversation links. When `DATABASE_URL` is missing, the backend falls back to the local JSON file. Set `DATABASE_SSL=false` only for a local Postgres instance that does not support SSL; hosted databases should normally use the default SSL behavior.
+
+The first Postgres connection creates this MVP table automatically:
+
+```text
+support_chat_sessions
+```
+
+The table stores the session record as JSONB. This keeps the initial persistence step small while preserving the existing API behavior. A later production hardening pass can split sessions, messages, and tickets into separate relational tables if needed.
+
 List local tickets:
 
 ```bash

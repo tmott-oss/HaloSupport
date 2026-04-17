@@ -4,6 +4,8 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { Pool } from "pg";
+
 import { ChatwootApiProvider, chatwootConfigFromEnv, hasChatwootCredentials, MockChatwootProvider } from "../providers/chatwoot.js";
 import type { ChatwootConversation, ChatwootProvider } from "../providers/interfaces.js";
 
@@ -94,6 +96,7 @@ const MAX_REQUEST_BYTES = 64 * 1024;
 const chatClientDistDir = path.join(process.cwd(), "apps", "chat-client-react", "dist");
 const runtimeDataDir = path.join(process.cwd(), ".halosight-runtime");
 const chatSessionStorePath = path.join(runtimeDataDir, "chat-sessions.json");
+const databaseUrl = process.env.DATABASE_URL?.trim();
 const supportedKnowledgeExtensions = new Set([".md", ".json", ".yaml", ".yml"]);
 const stopWords = new Set([
   "about",
@@ -1220,6 +1223,12 @@ const chatSessions = new Map<string, ChatSession>();
 let sessionStoreReady: Promise<void> | undefined;
 let sessionWriteQueue = Promise.resolve();
 const chatwootProvider: ChatwootProvider = hasChatwootCredentials() ? new ChatwootApiProvider() : new MockChatwootProvider();
+const databasePool = databaseUrl
+  ? new Pool({
+      connectionString: databaseUrl,
+      ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }
+    })
+  : undefined;
 
 async function loadKnowledgeBase() {
   knowledgeCache ??= (async () => {
@@ -1475,6 +1484,11 @@ function createOrUpdateSupportTicket(session: ChatSession, supportResponse: Supp
 
 async function loadStoredChatSessions() {
   sessionStoreReady ??= (async () => {
+    if (databasePool) {
+      await loadChatSessionsFromPostgres();
+      return;
+    }
+
     try {
       const rawSessions = JSON.parse(await readFile(chatSessionStorePath, "utf8")) as unknown;
       if (!Array.isArray(rawSessions)) {
@@ -1500,11 +1514,76 @@ async function loadStoredChatSessions() {
 async function saveChatSessions() {
   await loadStoredChatSessions();
   sessionWriteQueue = sessionWriteQueue.then(async () => {
+    if (databasePool) {
+      await saveChatSessionsToPostgres();
+      return;
+    }
+
     await mkdir(runtimeDataDir, { recursive: true });
     const sessions = Array.from(chatSessions.values());
     await writeFile(chatSessionStorePath, JSON.stringify(sessions, null, 2), "utf8");
   });
   return sessionWriteQueue;
+}
+
+async function ensurePostgresSchema() {
+  if (!databasePool) {
+    return;
+  }
+
+  await databasePool.query(`
+    create table if not exists support_chat_sessions (
+      session_id text primary key,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+}
+
+async function loadChatSessionsFromPostgres() {
+  if (!databasePool) {
+    return;
+  }
+
+  await ensurePostgresSchema();
+  const result = await databasePool.query<{ payload: unknown }>("select payload from support_chat_sessions order by updated_at asc");
+  for (const row of result.rows) {
+    const session = parseStoredChatSession(row.payload);
+    if (session) {
+      chatSessions.set(session.sessionId, session);
+    }
+  }
+}
+
+async function saveChatSessionsToPostgres() {
+  if (!databasePool) {
+    return;
+  }
+
+  await ensurePostgresSchema();
+  const client = await databasePool.connect();
+  try {
+    await client.query("begin");
+    for (const session of chatSessions.values()) {
+      await client.query(
+        `
+          insert into support_chat_sessions (session_id, payload, created_at, updated_at)
+          values ($1, $2::jsonb, $3::timestamptz, $4::timestamptz)
+          on conflict (session_id) do update set
+            payload = excluded.payload,
+            updated_at = excluded.updated_at
+        `,
+        [session.sessionId, JSON.stringify(session), session.createdAt, session.updatedAt]
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function parseStoredChatSession(value: unknown): ChatSession | undefined {
@@ -1882,9 +1961,10 @@ function buildDebugConfig() {
     sessions: {
       activeCount: chatSessions.size,
       ticketCount: Array.from(chatSessions.values()).filter((session) => session.ticket).length,
-      persistence: "local_json",
-      storePath: path.relative(process.cwd(), chatSessionStorePath),
-      storeExists: existsSync(chatSessionStorePath)
+      persistence: databasePool ? "postgres" : "local_json",
+      databaseConfigured: Boolean(databasePool),
+      storePath: databasePool ? null : path.relative(process.cwd(), chatSessionStorePath),
+      storeExists: databasePool ? null : existsSync(chatSessionStorePath)
     },
     slack: {
       configured: Boolean(slackWebhookUrl),
