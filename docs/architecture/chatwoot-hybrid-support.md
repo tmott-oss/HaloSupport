@@ -37,6 +37,7 @@ Responsibilities:
 - send host context such as surface, route, user, and account context
 - display AI messages, refusal messages, and escalation states
 - switch to human waiting or connected states after escalation
+- poll the wrapper for human replies after escalation until a stronger realtime path is added
 - run inside the public site, authenticated app, or Flutter WebView
 
 ### Wrapper / Orchestrator Service
@@ -52,6 +53,8 @@ Responsibilities:
 - create or resume Chatwoot conversations on escalation
 - forward relevant transcript and context to Chatwoot
 - return human-support state to the client
+- receive signed Chatwoot webhook events for agent replies
+- expose session transcript polling for the embedded client
 - record transcript and analytics metadata
 
 ### Knowledge Layer
@@ -100,6 +103,15 @@ The current MVP already has:
 - local ticket queue for escalated sessions
 - real Chatwoot contact/conversation creation when Chatwoot credentials are configured
 - local ticket links back to the created Chatwoot conversation
+- signed Chatwoot webhook receiver for public agent replies
+- reply polling from the React chat client after escalation
+
+Verified on April 17, 2026 in Render staging:
+
+- restricted-claim question escalates from the Halosight chat client
+- Slack receives an escalation notification
+- Chatwoot receives a real conversation with transcript/context
+- public Chatwoot agent reply appears back in the Halosight chat client
 
 Slack escalation is an interim path. The Chatwoot-backed implementation should eventually replace or sit beside Slack escalation, depending on operations preference.
 
@@ -126,6 +138,7 @@ Slack escalation is an interim path. The Chatwoot-backed implementation should e
 - forward transcript and context
 - support waiting / connected states in the client
 - support human reply synchronization path
+- verify signed Chatwoot webhooks in staging
 
 ### Phase 4: Persistence and Analytics
 
@@ -148,3 +161,4 @@ Slack escalation is an interim path. The Chatwoot-backed implementation should e
 - Chatwoot hosting target: VM, GKE, or another documented path
 - Human-unavailable fallback: message only or ticket/contact form
 - Whether Slack remains as an internal notification channel after Chatwoot escalation is live
+- Whether polling remains acceptable for MVP or should be replaced with server-sent events, WebSocket, or another realtime path

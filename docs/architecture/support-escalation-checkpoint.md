@@ -14,6 +14,7 @@ The current system is intentionally simple. It proves the core loop:
 6. Create a local support ticket for escalated conversations.
 7. Link the local ticket to the real Chatwoot conversation when Chatwoot is configured.
 8. Let support operators inspect and update ticket status locally while opening Chatwoot for human handling.
+9. Sync normal Chatwoot agent replies back into the Halosight chat client.
 
 ## What Is Built Now
 
@@ -26,6 +27,8 @@ Current endpoints:
 - `POST /support`
 - `POST /chat/session`
 - `POST /chat/message`
+- `GET /chat/messages`
+- `POST /chatwoot/webhook`
 - `GET /support-test`
 - `GET /chat-client`
 - `GET /debug/config`
@@ -99,6 +102,7 @@ The chat session API tracks a support session with:
 - transcript messages
 - local ticket metadata when escalation occurs
 - linked Chatwoot conversation ID and URL when Chatwoot escalation succeeds
+- human support replies received from Chatwoot webhooks
 
 Sessions are persisted locally in:
 
@@ -184,7 +188,7 @@ Build the client with:
 npm run build:chat-client
 ```
 
-The current client is a local integration test surface. It is the starting point for a future embeddable website support tab.
+The current client is a local/staging integration test surface. It starts sessions, sends user messages, shows AI/escalation responses, and polls for human replies after escalation. It is the starting point for a future embeddable website support tab.
 
 ### Chatwoot Escalation
 
@@ -202,26 +206,30 @@ Current state:
 - Chatwoot conversation URL is returned in the backend escalation response
 - the local support ticket stores the Chatwoot conversation ID and URL
 - repeated escalations for the same session reuse the existing linked Chatwoot conversation
+- Chatwoot `message_created` webhooks are verified with Chatwoot's HMAC signature headers
+- normal public Chatwoot agent replies are stored as `human` transcript messages
+- the React chat client polls `GET /chat/messages` after escalation and displays human replies as `Support`
 - verified in Render staging on April 17, 2026 with a real Chatwoot conversation created in account `161157`
+- verified in Render staging on April 17, 2026 with a real Chatwoot agent reply appearing back in the Halosight chat client
 
 Verified staging result:
 
 - Chatwoot contact name: `Halosight Support Visitor {session prefix}`
 - Chatwoot conversation status: `open`
 - private note includes escalation reason, transcript, session ID, source, route, and knowledge set
+- public agent reply in Chatwoot appears in the Halosight chat client as a `Support` message
 
 ## What Is Still Mocked
 
 The following are not production-ready yet:
 
-- human reply synchronization
 - authenticated user/account context
 - production knowledge retrieval
-- production deployment
 - website embed packaging
 - security controls around public API exposure
+- durable production persistence
 
-Session persistence and ticket lifecycle now exist locally/staging, but they are not production persistence or production ticketing yet. Chatwoot conversation creation is real when credentials are configured, but human reply synchronization is not wired back into the Halosight chat client yet.
+Session persistence and ticket lifecycle now exist locally/staging, but they are not production persistence or production ticketing yet. Chatwoot conversation creation and human reply sync are real when credentials and webhooks are configured.
 
 ## Current Local Test Flow
 
@@ -265,6 +273,7 @@ Expected result:
 - local ticket is created with status `open`
 - ticket appears in `http://localhost:3001/tickets-view`
 - ticket detail includes an `Open in Chatwoot` link when Chatwoot escalation succeeds
+- public Chatwoot agent replies appear back in the chat client after a short polling delay
 
 7. Open local ticket operations:
 
@@ -312,6 +321,7 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 - Keep validating Chatwoot credentials in staging as environments change.
 - Confirm real Chatwoot contacts and conversations are created on escalation after each deployment.
 - Confirm transcript and source context remain visible to support agents.
+- Confirm Chatwoot webhook signature verification and reply sync after webhook or secret changes.
 - Decide whether Slack remains as a parallel notification after Chatwoot is live.
 
 ### Milestone 3: Support Ticket Model
@@ -335,6 +345,7 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 - Add logging for escalation outcomes.
 - Add monitoring for Slack and Chatwoot delivery failures.
 - Protect ticket operations behind authentication before any public deployment.
+- Replace local JSON session storage with durable persistence before production traffic.
 
 ## Engineering Notes
 
@@ -343,6 +354,6 @@ The current architecture keeps the AI wrapper separate from Chatwoot. This is th
 - the support AI can answer simple questions without creating a ticket
 - Chatwoot can remain focused on human escalation and ticket handling
 - the wrapper can enforce Halosight-specific knowledge and guardrails
-- Slack can remain an interim alerting path while Chatwoot is wired up
+- Slack can remain an interim or parallel alerting path while Chatwoot owns human support workflow
 
-The next engineering priority should be deciding Chatwoot as the support-ticket source of truth, then wiring Chatwoot reply/status synchronization. Avoid adding more AI complexity until the support workflow is stable.
+The next engineering priority should be durable persistence and website-embed hardening. Avoid adding more AI complexity until the support workflow is stable.
