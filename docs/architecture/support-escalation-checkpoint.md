@@ -110,7 +110,9 @@ Sessions are persisted locally in:
 .halosight-runtime/chat-sessions.json
 ```
 
-This is still an MVP persistence layer, not the final production database. It is useful because local conversations and tickets survive backend restarts during testing.
+When `DATABASE_URL` is configured, sessions are persisted in Postgres instead. The first durable store uses a JSONB-backed `support_chat_sessions` table so the API behavior can stay stable while the storage layer becomes deploy-safe.
+
+The local JSON file remains the fallback for development. It is useful because local conversations and tickets survive backend restarts during testing, but it should not be used for production traffic.
 
 ### Local Ticket System
 
@@ -229,7 +231,7 @@ The following are not production-ready yet:
 - security controls around public API exposure
 - durable production persistence
 
-Session persistence and ticket lifecycle now exist locally/staging, but they are not production persistence or production ticketing yet. Chatwoot conversation creation and human reply sync are real when credentials and webhooks are configured.
+Session persistence and ticket lifecycle now exist locally, in staging, and through optional Postgres durability. Chatwoot conversation creation and human reply sync are real when credentials and webhooks are configured. The current Postgres store is an MVP durability layer, not the final long-term analytics or reporting model.
 
 ## Current Local Test Flow
 
@@ -342,10 +344,11 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 
 - Deploy the backend as a small service.
 - Store secrets in the deployment platform, not in local files.
+- Configure `DATABASE_URL` for durable persistence.
 - Add logging for escalation outcomes.
 - Add monitoring for Slack and Chatwoot delivery failures.
 - Protect ticket operations behind authentication before any public deployment.
-- Replace local JSON session storage with durable persistence before production traffic.
+- Add backup, retention, and migration policy for Postgres before production traffic.
 
 ## Engineering Notes
 
@@ -356,4 +359,4 @@ The current architecture keeps the AI wrapper separate from Chatwoot. This is th
 - the wrapper can enforce Halosight-specific knowledge and guardrails
 - Slack can remain an interim or parallel alerting path while Chatwoot owns human support workflow
 
-The next engineering priority should be durable persistence and website-embed hardening. Avoid adding more AI complexity until the support workflow is stable.
+The next engineering priority should be validating Postgres persistence in deployment and hardening the website embed path. Avoid adding more AI complexity until the support workflow is stable.

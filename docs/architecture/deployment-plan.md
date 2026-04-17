@@ -87,6 +87,7 @@ Minimum staging variables:
 ```text
 PORT=3001
 SLACK_WEBHOOK_URL=...
+DATABASE_URL=...
 ```
 
 Optional Chatwoot variables:
@@ -108,6 +109,8 @@ Current behavior:
 - `CHATWOOT_WEBHOOK_TOKEN` should be set to the webhook secret from Chatwoot so signed webhook payloads can be verified.
 - If `SLACK_WEBHOOK_URL` is present and valid, escalation posts to Slack.
 - `/debug/config` verifies configuration without exposing secrets.
+- If `DATABASE_URL` is present, chat sessions, transcripts, tickets, and Chatwoot conversation links persist in Postgres.
+- If `DATABASE_URL` is missing, the backend falls back to local JSON persistence.
 
 ## Important Security Notes Before Sharing
 
@@ -130,7 +133,19 @@ For a CTO demo, acceptable short-term options are:
 
 ## Persistence Caveat
 
-The current MVP stores sessions and tickets in:
+The backend supports two persistence modes.
+
+When `DATABASE_URL` is configured, the MVP stores chat sessions, transcripts, local ticket metadata, and Chatwoot conversation links in Postgres. The initial Postgres implementation uses one JSONB-backed table:
+
+```text
+support_chat_sessions
+```
+
+This keeps the first durable persistence step small and preserves the current API behavior.
+
+On Render, prefer the Postgres internal database URL when the database and web service are in the same account and region. Use the external URL only when connecting from outside Render.
+
+When `DATABASE_URL` is not configured, the MVP stores sessions and tickets in:
 
 ```text
 .halosight-runtime/chat-sessions.json
@@ -138,11 +153,12 @@ The current MVP stores sessions and tickets in:
 
 This is acceptable for local development and very small staging demos. It is not production persistence.
 
-Before production, replace this with a real database such as:
+Before production, continue hardening persistence with:
 
-- Postgres
-- SQLite on a persistent volume for a short-lived staging step
-- Chatwoot as the ticket source of truth, if that becomes the chosen architecture
+- Postgres backups and retention policy
+- explicit migration management
+- optional relational tables for sessions, messages, and tickets
+- Chatwoot as the ticket source of truth, if that remains the chosen architecture
 
 Cloud platforms with ephemeral filesystems may erase `.halosight-runtime` on restart or redeploy.
 
