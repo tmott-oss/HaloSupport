@@ -17,10 +17,10 @@ It accepts a user message, searches the local Halosight knowledge base, returns 
 ## What It Does Not Do
 
 - It does not call a real LLM yet
-- It does not implement real support integrations
 - It does not handle billing, payments, account permissions, or sensitive account actions
 - It does not invent answers outside the supplied knowledge base
 - It does not send customer-facing messages automatically
+- It does not host or modify Chatwoot itself
 
 If it is not sure, it escalates.
 
@@ -110,6 +110,48 @@ Open the local ticket operations page:
 ```text
 http://localhost:3000/tickets-view
 ```
+
+## Chatwoot Hosting Expectations
+
+Chatwoot is expected to run as a separate service. This repo does not fork, vendor, deploy, or customize Chatwoot source code.
+
+The Halosight support agent treats Chatwoot as the human-support backend. The support agent owns the AI chat flow, knowledge search, guardrails, and escalation decision. Chatwoot owns the human inbox, agent workflow, and escalated conversation record.
+
+Acceptable Chatwoot hosting options include:
+
+- Chatwoot Cloud
+- a self-hosted Chatwoot deployment managed separately
+- a future company-standard deployment target approved by engineering
+
+The support agent only needs Chatwoot to provide:
+
+- a reachable Chatwoot base URL
+- a Chatwoot account ID
+- an inbox ID for Halosight support escalations
+- an API access token with permission to create contacts, conversations, and messages
+- a support team process for monitoring and responding to the Chatwoot inbox
+
+Configure these values as environment variables:
+
+```text
+CHATWOOT_BASE_URL=https://app.chatwoot.com
+CHATWOOT_ACCOUNT_ID=your-account-id
+CHATWOOT_INBOX_ID=your-inbox-id
+CHATWOOT_API_TOKEN=your-api-token
+```
+
+When these values are present, an escalation creates or reuses a Chatwoot conversation and posts the transcript/context as a private note. The local ticket stores the Chatwoot conversation ID and URL so operators can open the real conversation from `/tickets-view`.
+
+When these values are missing, the backend uses a mock Chatwoot provider. That is useful for local development, but it is not a production support workflow.
+
+For production, Chatwoot should be treated as the support ticket source of truth unless engineering decides otherwise. The local ticket store is only MVP/debug metadata and should not become a parallel long-term ticketing system.
+
+Still to be decided before production:
+
+- how human replies flow back from Chatwoot into the embedded Halosight chat client
+- whether Slack remains as a parallel internal notification channel
+- whether Chatwoot is hosted through Chatwoot Cloud or a self-hosted environment
+- what retention, backup, access-control, and support-agent assignment policies apply inside Chatwoot
 
 Ask a support question:
 
