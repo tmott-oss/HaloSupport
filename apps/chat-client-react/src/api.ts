@@ -4,6 +4,16 @@ export interface SupportApiClientOptions {
   baseUrl?: string;
 }
 
+export class SupportApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "SupportApiError";
+  }
+}
+
 export class SupportApiClient {
   constructor(private readonly options: SupportApiClientOptions = {}) {}
 
@@ -28,7 +38,7 @@ export class SupportApiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Support API request failed: ${response.status}`);
+      throw new SupportApiError(`Support API request failed: ${response.status}`, response.status);
     }
 
     return (await response.json()) as T;
