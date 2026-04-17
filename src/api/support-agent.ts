@@ -82,7 +82,7 @@ interface SupportTicket {
 }
 
 interface ChatTranscriptMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "human";
   content: string;
   createdAt: string;
   escalated?: boolean;
@@ -1586,7 +1586,7 @@ function parseStoredTranscriptMessage(value: unknown): ChatTranscriptMessage | u
 
   const rawMessage = value as Partial<ChatTranscriptMessage>;
   if (
-    (rawMessage.role !== "user" && rawMessage.role !== "assistant") ||
+    (rawMessage.role !== "user" && rawMessage.role !== "assistant" && rawMessage.role !== "human") ||
     typeof rawMessage.content !== "string" ||
     typeof rawMessage.createdAt !== "string"
   ) {
@@ -1630,6 +1630,15 @@ function publicSession(session: ChatSession) {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     messageCount: session.messages.length
+  };
+}
+
+function publicChatMessage(message: ChatTranscriptMessage) {
+  return {
+    role: message.role,
+    content: message.content,
+    createdAt: message.createdAt,
+    escalated: message.escalated
   };
 }
 
@@ -1686,6 +1695,40 @@ function updateSupportTicketStatus(ticketId: string, status: SupportTicketStatus
   };
 }
 
+function findSessionByChatwootConversationId(conversationId: string) {
+  return Array.from(chatSessions.values()).find(
+    (candidate) => candidate.ticket?.chatwootConversationId === conversationId
+  );
+}
+
+function appendHumanSupportMessage(session: ChatSession, content: string, createdAt = new Date().toISOString()) {
+  const trimmedContent = content.trim();
+  if (!trimmedContent) {
+    return undefined;
+  }
+
+  const duplicate = session.messages.some(
+    (message) => message.role === "human" && message.content === trimmedContent && message.createdAt === createdAt
+  );
+  if (duplicate) {
+    return undefined;
+  }
+
+  const message: ChatTranscriptMessage = {
+    role: "human",
+    content: trimmedContent,
+    createdAt
+  };
+  session.messages.push(message);
+  session.humanSupportStatus = "escalated";
+  session.updatedAt = createdAt;
+  if (session.ticket) {
+    session.ticket.status = session.ticket.status === "resolved" ? "open" : session.ticket.status;
+    session.ticket.updatedAt = createdAt;
+  }
+  return message;
+}
+
 function attachChatwootConversation(session: ChatSession, conversation: ChatwootConversation) {
   if (!session.ticket) {
     return;
@@ -1721,7 +1764,7 @@ async function createChatwootEscalation(
       subject: `Halosight support escalation: ${session.route ?? session.surface}`,
       escalationReason: supportResponse.escalationReason ?? "Escalation required.",
       transcript: session.messages.map((message) => ({
-        role: message.role,
+        role: message.role === "human" ? "system" : message.role,
         content: message.content,
         createdAt: message.createdAt
       })),
@@ -1847,9 +1890,104 @@ function buildDebugConfig() {
     chatwoot: {
       mode: hasChatwootCredentials(chatwootConfig) ? "api" : "mock",
       configured: hasChatwootCredentials(chatwootConfig),
-      credentials: chatwootCredentialStatus
+      credentials: chatwootCredentialStatus,
+      webhookTokenConfigured: Boolean(process.env.CHATWOOT_WEBHOOK_TOKEN?.trim())
     }
   };
+}
+
+function getStringField(value: unknown, keys: string[]) {
+  let current = value;
+  for (const key of keys) {
+    if (!current || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  if (typeof current === "string") {
+    return current;
+  }
+
+  if (typeof current === "number") {
+    return String(current);
+  }
+
+  return undefined;
+}
+
+function getBooleanField(value: unknown, keys: string[]) {
+  let current = value;
+  for (const key of keys) {
+    if (!current || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return typeof current === "boolean" ? current : undefined;
+}
+
+function parseWebhookCreatedAt(value: unknown) {
+  const rawCreatedAt =
+    getStringField(value, ["created_at"]) ??
+    getStringField(value, ["message", "created_at"]) ??
+    getStringField(value, ["createdAt"]) ??
+    getStringField(value, ["message", "createdAt"]);
+  if (!rawCreatedAt) {
+    return new Date().toISOString();
+  }
+
+  const numericTimestamp = Number(rawCreatedAt);
+  if (Number.isFinite(numericTimestamp)) {
+    return new Date(numericTimestamp < 10_000_000_000 ? numericTimestamp * 1000 : numericTimestamp).toISOString();
+  }
+
+  const parsed = new Date(rawCreatedAt);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+function parseChatwootHumanReply(value: unknown) {
+  const messageType =
+    getStringField(value, ["message_type"]) ??
+    getStringField(value, ["message", "message_type"]) ??
+    getStringField(value, ["messageType"]) ??
+    getStringField(value, ["message", "messageType"]);
+  const privateMessage =
+    getBooleanField(value, ["private"]) ??
+    getBooleanField(value, ["message", "private"]) ??
+    getBooleanField(value, ["private_note"]) ??
+    getBooleanField(value, ["message", "private_note"]) ??
+    false;
+  const content = getStringField(value, ["content"]) ?? getStringField(value, ["message", "content"]);
+  const conversationId =
+    getStringField(value, ["conversation", "id"]) ??
+    getStringField(value, ["conversation_id"]) ??
+    getStringField(value, ["conversation", "display_id"]) ??
+    getStringField(value, ["message", "conversation_id"]);
+
+  if (!conversationId || !content?.trim() || messageType !== "outgoing" || privateMessage) {
+    return undefined;
+  }
+
+  return {
+    conversationId,
+    content,
+    createdAt: parseWebhookCreatedAt(value)
+  };
+}
+
+function verifyChatwootWebhookToken(request: IncomingMessage, requestUrl: URL) {
+  const expectedToken = process.env.CHATWOOT_WEBHOOK_TOKEN?.trim();
+  if (!expectedToken) {
+    return true;
+  }
+
+  const suppliedToken =
+    request.headers["x-halosight-webhook-token"] ??
+    request.headers["x-chatwoot-webhook-token"] ??
+    requestUrl.searchParams.get("token");
+  return suppliedToken === expectedToken;
 }
 
 async function serveChatClient(requestPath: string, response: ServerResponse, includeBody = true) {
@@ -1925,7 +2063,8 @@ function writeAuthRequired(response: ServerResponse) {
 
 const server = createServer(async (request, response) => {
   try {
-    const requestPath = request.url?.split("?")[0] ?? "";
+    const requestUrl = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+    const requestPath = requestUrl.pathname;
 
     if (isProtectedOpsRoute(requestPath) && !requireOpsAuth(request, response)) {
       return;
@@ -1962,6 +2101,62 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && requestPath === "/tickets") {
       await loadStoredChatSessions();
       writeJson(response, 200, { tickets: listSupportTickets() });
+      return;
+    }
+
+    if (request.method === "GET" && requestPath === "/chat/messages") {
+      await loadStoredChatSessions();
+      const sessionId = requestUrl.searchParams.get("sessionId")?.trim() ?? "";
+      const session = sessionId ? chatSessions.get(sessionId) : undefined;
+      if (!session) {
+        writeJson(response, 404, {
+          error: "sessionId was not found. Create a new session with POST /chat/session before polling messages.",
+          sessionId
+        });
+        return;
+      }
+
+      writeJson(response, 200, {
+        session: publicSession(session),
+        messages: session.messages.map((message) => publicChatMessage(message))
+      });
+      return;
+    }
+
+    if (request.method === "POST" && requestPath === "/chatwoot/webhook") {
+      if (!verifyChatwootWebhookToken(request, requestUrl)) {
+        writeJson(response, 401, { error: "Invalid Chatwoot webhook token." });
+        return;
+      }
+
+      await loadStoredChatSessions();
+      const body = await readJsonBody(request);
+      const humanReply = parseChatwootHumanReply(body);
+      if (!humanReply) {
+        writeJson(response, 202, { status: "ignored" });
+        return;
+      }
+
+      const session = findSessionByChatwootConversationId(humanReply.conversationId);
+      if (!session) {
+        writeJson(response, 202, {
+          status: "ignored",
+          reason: "No local session is linked to this Chatwoot conversation.",
+          conversationId: humanReply.conversationId
+        });
+        return;
+      }
+
+      const message = appendHumanSupportMessage(session, humanReply.content, humanReply.createdAt);
+      if (message) {
+        await saveChatSessions();
+      }
+
+      writeJson(response, 200, {
+        status: message ? "recorded" : "duplicate",
+        session: publicSession(session),
+        message: message ? publicChatMessage(message) : undefined
+      });
       return;
     }
 

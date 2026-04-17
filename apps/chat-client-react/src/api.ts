@@ -1,4 +1,4 @@
-import type { ChatMessageResponse, ChatSession, SupportChatContext } from "./types";
+import type { ChatMessageResponse, ChatMessagesResponse, ChatSession, SupportChatContext } from "./types";
 
 export interface SupportApiClientOptions {
   baseUrl?: string;
@@ -28,6 +28,16 @@ export class SupportApiClient {
     context: SupportChatContext;
   }): Promise<ChatMessageResponse> {
     return this.post<ChatMessageResponse>("/chat/message", params);
+  }
+
+  async getMessages(sessionId: string): Promise<ChatMessagesResponse> {
+    const response = await fetch(`${this.options.baseUrl ?? ""}/chat/messages?sessionId=${encodeURIComponent(sessionId)}`);
+
+    if (!response.ok) {
+      throw new SupportApiError(`Support API request failed: ${response.status}`, response.status);
+    }
+
+    return (await response.json()) as ChatMessagesResponse;
   }
 
   private async post<T>(path: string, payload: unknown): Promise<T> {

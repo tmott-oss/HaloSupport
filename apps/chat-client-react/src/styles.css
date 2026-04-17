@@ -93,6 +93,12 @@
   color: #0b5e59;
 }
 
+.hs-message.human {
+  border-left: 3px solid #0f766e;
+  padding-left: 12px;
+  color: #1d201f;
+}
+
 .hs-error {
   color: #b42318;
 }

@@ -16,8 +16,9 @@ export interface ChatSession {
 }
 
 export interface ChatMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "human";
   content: string;
+  createdAt?: string;
   escalated?: boolean;
 }
 
@@ -51,6 +52,11 @@ export interface ChatReply {
 export interface ChatMessageResponse {
   session: ChatSession;
   reply: ChatReply;
+}
+
+export interface ChatMessagesResponse {
+  session: ChatSession;
+  messages: ChatMessage[];
 }
 
 export interface SupportChatContext {
