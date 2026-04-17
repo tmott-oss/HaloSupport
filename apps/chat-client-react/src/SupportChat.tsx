@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 
-import { SupportApiClient } from "./api";
+import { SupportApiClient, SupportApiError } from "./api";
 import type { ChatMessage, ChatMessageResponse, SupportChatContext } from "./types";
 import "./styles.css";
 
@@ -27,6 +27,10 @@ export function SupportChat({ apiBaseUrl, context }: SupportChatProps) {
       return existing;
     }
 
+    return startFreshSession();
+  }
+
+  async function startFreshSession() {
     const session = await api.startSession(context);
     window.localStorage.setItem(sessionStorageKey, session.sessionId);
     return session.sessionId;
@@ -45,7 +49,22 @@ export function SupportChat({ apiBaseUrl, context }: SupportChatProps) {
 
     try {
       const sessionId = await ensureSessionId();
-      const response = await api.sendMessage({ sessionId, message, context });
+      let response: ChatMessageResponse;
+
+      try {
+        response = await api.sendMessage({ sessionId, message, context });
+      } catch (caught) {
+        // A redeploy can leave the browser with an old local session ID.
+        // If the API cannot find that session, clear it and retry once.
+        if (!(caught instanceof SupportApiError) || caught.status !== 404) {
+          throw caught;
+        }
+
+        window.localStorage.removeItem(sessionStorageKey);
+        const freshSessionId = await startFreshSession();
+        response = await api.sendMessage({ sessionId: freshSessionId, message, context });
+      }
+
       setLastResponse(response);
       setMessages((current) => [
         ...current,
