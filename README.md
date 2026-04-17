@@ -138,17 +138,26 @@ CHATWOOT_BASE_URL=https://app.chatwoot.com
 CHATWOOT_ACCOUNT_ID=your-account-id
 CHATWOOT_INBOX_ID=your-inbox-id
 CHATWOOT_API_TOKEN=your-api-token
+CHATWOOT_WEBHOOK_TOKEN=optional-shared-secret
 ```
 
 When these values are present, an escalation creates or reuses a Chatwoot conversation and posts the transcript/context as a private note. The local ticket stores the Chatwoot conversation ID and URL so operators can open the real conversation from `/tickets-view`.
 
 When these values are missing, the backend uses a mock Chatwoot provider. That is useful for local development, but it is not a production support workflow.
 
+For human reply sync, configure Chatwoot to send message webhooks to:
+
+```text
+https://your-support-service.example.com/chatwoot/webhook
+```
+
+If `CHATWOOT_WEBHOOK_TOKEN` is set, include the same value as either the `x-halosight-webhook-token` header, the `x-chatwoot-webhook-token` header, or a `?token=` query parameter. The backend records non-private Chatwoot `outgoing` messages as `human` transcript messages, and the React chat client polls `GET /chat/messages` after escalation so the user can see human replies.
+
 For production, Chatwoot should be treated as the support ticket source of truth unless engineering decides otherwise. The local ticket store is only MVP/debug metadata and should not become a parallel long-term ticketing system.
 
 Still to be decided before production:
 
-- how human replies flow back from Chatwoot into the embedded Halosight chat client
+- whether webhook-based human reply sync is sufficient or should move to a stronger realtime path
 - whether Slack remains as a parallel internal notification channel
 - whether Chatwoot is hosted through Chatwoot Cloud or a self-hosted environment
 - what retention, backup, access-control, and support-agent assignment policies apply inside Chatwoot

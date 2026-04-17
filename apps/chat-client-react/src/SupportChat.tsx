@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { SupportApiClient, SupportApiError } from "./api";
 import type { ChatMessage, ChatMessageResponse, SupportChatContext } from "./types";
@@ -19,7 +19,38 @@ export function SupportChat({ apiBaseUrl, context }: SupportChatProps) {
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [lastResponse, setLastResponse] = useState<ChatMessageResponse | undefined>();
+  const [sessionId, setSessionId] = useState<string | undefined>(() => window.localStorage.getItem(sessionStorageKey) ?? undefined);
   const [error, setError] = useState<string | undefined>();
+  const shouldPollForReplies = Boolean(open && sessionId && lastResponse?.session.humanSupportStatus === "escalated");
+
+  useEffect(() => {
+    if (!shouldPollForReplies || !sessionId) {
+      return;
+    }
+
+    let active = true;
+
+    async function refreshMessages() {
+      try {
+        const response = await api.getMessages(sessionId);
+        if (active) {
+          setMessages(response.messages);
+        }
+      } catch (caught) {
+        if (caught instanceof SupportApiError && caught.status === 404) {
+          window.localStorage.removeItem(sessionStorageKey);
+          setSessionId(undefined);
+        }
+      }
+    }
+
+    refreshMessages();
+    const interval = window.setInterval(refreshMessages, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [api, sessionId, shouldPollForReplies]);
 
   async function ensureSessionId() {
     const existing = window.localStorage.getItem(sessionStorageKey);
@@ -33,7 +64,20 @@ export function SupportChat({ apiBaseUrl, context }: SupportChatProps) {
   async function startFreshSession() {
     const session = await api.startSession(context);
     window.localStorage.setItem(sessionStorageKey, session.sessionId);
+    setSessionId(session.sessionId);
     return session.sessionId;
+  }
+
+  function messageLabel(message: ChatMessage) {
+    if (message.role === "user") {
+      return "You";
+    }
+
+    if (message.role === "human") {
+      return "Support";
+    }
+
+    return message.escalated ? "Escalated" : "Halosight";
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -61,6 +105,7 @@ export function SupportChat({ apiBaseUrl, context }: SupportChatProps) {
         }
 
         window.localStorage.removeItem(sessionStorageKey);
+        setSessionId(undefined);
         const freshSessionId = await startFreshSession();
         response = await api.sendMessage({ sessionId: freshSessionId, message, context });
       }
@@ -108,7 +153,7 @@ export function SupportChat({ apiBaseUrl, context }: SupportChatProps) {
           ) : (
             messages.map((message, index) => (
               <article className={`hs-message ${message.role}`} key={`${message.role}-${index}`}>
-                <strong>{message.role === "user" ? "You" : message.escalated ? "Escalated" : "Halosight"}</strong>
+                <strong>{messageLabel(message)}</strong>
                 <p>{message.content}</p>
               </article>
             ))
