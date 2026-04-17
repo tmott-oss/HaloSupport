@@ -12,7 +12,8 @@ The current system is intentionally simple. It proves the core loop:
 4. Escalate when confidence is low or the question touches restricted claims.
 5. Notify the human support path.
 6. Create a local support ticket for escalated conversations.
-7. Let support operators inspect and update ticket status locally.
+7. Link the local ticket to the real Chatwoot conversation when Chatwoot is configured.
+8. Let support operators inspect and update ticket status locally while opening Chatwoot for human handling.
 
 ## What Is Built Now
 
@@ -97,6 +98,7 @@ The chat session API tracks a support session with:
 - human support status
 - transcript messages
 - local ticket metadata when escalation occurs
+- linked Chatwoot conversation ID and URL when Chatwoot escalation succeeds
 
 Sessions are persisted locally in:
 
@@ -117,6 +119,8 @@ Current ticket fields:
 - status
 - escalation reason
 - source paths
+- Chatwoot conversation ID, when available
+- Chatwoot conversation URL, when available
 - created timestamp
 - updated timestamp
 
@@ -144,6 +148,7 @@ The page supports:
 - viewing escalation reason
 - viewing source paths
 - viewing transcript
+- opening the linked Chatwoot conversation
 - changing ticket status
 - saving the status update through the backend API
 
@@ -195,6 +200,8 @@ Current state:
 - if Chatwoot credentials are configured, the backend creates a real Chatwoot contact and conversation
 - escalation transcript and context are posted into Chatwoot as a private note
 - Chatwoot conversation URL is returned in the backend escalation response
+- the local support ticket stores the Chatwoot conversation ID and URL
+- repeated escalations for the same session reuse the existing linked Chatwoot conversation
 - verified in Render staging on April 17, 2026 with a real Chatwoot conversation created in account `161157`
 
 Verified staging result:
@@ -257,6 +264,7 @@ Expected result:
 - Chatwoot creates a real open conversation when credentials are configured
 - local ticket is created with status `open`
 - ticket appears in `http://localhost:3001/tickets-view`
+- ticket detail includes an `Open in Chatwoot` link when Chatwoot escalation succeeds
 
 7. Open local ticket operations:
 
@@ -308,8 +316,8 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 
 ### Milestone 3: Support Ticket Model
 
-- Decide whether Chatwoot becomes the source of truth for ticket state.
-- If yes, reduce local tickets to debug/cache metadata and avoid building a parallel ticketing system.
+- Continue moving toward Chatwoot as the source of truth for ticket state.
+- Keep local tickets as debug/cache metadata and avoid building a parallel ticketing system.
 - If no, move the local ticket/session store to production persistence and sync with Chatwoot.
 - Add ownership, priority, and internal notes only after the source-of-truth decision.
 

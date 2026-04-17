@@ -75,6 +75,8 @@ interface SupportTicket {
   status: SupportTicketStatus;
   escalationReason: string;
   sourcePaths: string[];
+  chatwootConversationId?: string;
+  chatwootConversationUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -944,6 +946,20 @@ const ticketOpsPage = String.raw`<!doctype html>
         cursor: pointer;
       }
 
+      .external-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--accent);
+        padding: 0 14px;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
       .section {
         margin-top: 24px;
         padding-top: 18px;
@@ -1018,7 +1034,7 @@ const ticketOpsPage = String.raw`<!doctype html>
       <header>
         <div>
           <h1>Support Tickets</h1>
-          <p class="subhead">Review local escalation tickets, inspect the transcript, and update status while Chatwoot remains mocked.</p>
+          <p class="subhead">Review local escalation tickets, inspect the transcript, update status, and open linked Chatwoot conversations.</p>
         </div>
         <button class="refresh" type="button">Refresh</button>
       </header>
@@ -1127,6 +1143,9 @@ const ticketOpsPage = String.raw`<!doctype html>
               '</div>'
             ].join("")).join("")
           : '<p class="meta">No transcript messages recorded.</p>';
+        const chatwootLink = ticket.chatwootConversationUrl
+          ? '<a class="external-link" href="' + escapeHtml(ticket.chatwootConversationUrl) + '" target="_blank" rel="noreferrer">Open in Chatwoot</a>'
+          : '<span class="meta">No Chatwoot conversation linked yet.</span>';
 
         detail.innerHTML = [
           '<div class="detail-topline">',
@@ -1145,8 +1164,13 @@ const ticketOpsPage = String.raw`<!doctype html>
           '    <option value="resolved">resolved</option>',
           '  </select>',
           '  <button class="save" type="button">Save status</button>',
+          '  ' + chatwootLink,
           '</div>',
           '<p class="notice" id="notice"></p>',
+          '<div class="section">',
+          '  <h3>Chatwoot</h3>',
+          '  <p class="meta">Conversation ' + escapeHtml(ticket.chatwootConversationId || "not linked") + '</p>',
+          '</div>',
           '<div class="section">',
           '  <h3>Escalation Reason</h3>',
           '  <p class="reason">' + escapeHtml(ticket.escalationReason) + '</p>',
@@ -1532,6 +1556,8 @@ function parseStoredSupportTicket(value: unknown, sessionId: string): SupportTic
     sourcePaths: Array.isArray(rawTicket.sourcePaths)
       ? rawTicket.sourcePaths.filter((sourcePath): sourcePath is string => typeof sourcePath === "string")
       : [],
+    chatwootConversationId: typeof rawTicket.chatwootConversationId === "string" ? rawTicket.chatwootConversationId : undefined,
+    chatwootConversationUrl: typeof rawTicket.chatwootConversationUrl === "string" ? rawTicket.chatwootConversationUrl : undefined,
     createdAt: typeof rawTicket.createdAt === "string" ? rawTicket.createdAt : new Date().toISOString(),
     updatedAt: typeof rawTicket.updatedAt === "string" ? rawTicket.updatedAt : new Date().toISOString()
   };
@@ -1614,6 +1640,8 @@ function publicSupportTicket(ticket: SupportTicket) {
     status: ticket.status,
     escalationReason: ticket.escalationReason,
     sourcePaths: ticket.sourcePaths,
+    chatwootConversationId: ticket.chatwootConversationId,
+    chatwootConversationUrl: ticket.chatwootConversationUrl,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt
   };
@@ -1658,6 +1686,17 @@ function updateSupportTicketStatus(ticketId: string, status: SupportTicketStatus
   };
 }
 
+function attachChatwootConversation(session: ChatSession, conversation: ChatwootConversation) {
+  if (!session.ticket) {
+    return;
+  }
+
+  session.ticket.chatwootConversationId = conversation.conversationId;
+  session.ticket.chatwootConversationUrl = conversation.url;
+  session.ticket.updatedAt = new Date().toISOString();
+  session.updatedAt = session.ticket.updatedAt;
+}
+
 async function createChatwootEscalation(
   session: ChatSession,
   supportResponse: SupportResponse
@@ -1667,6 +1706,15 @@ async function createChatwootEscalation(
   }
 
   try {
+    if (session.ticket?.chatwootConversationId) {
+      const conversation = await chatwootProvider.getConversation(session.ticket.chatwootConversationId);
+      attachChatwootConversation(session, conversation);
+      return {
+        status: "created",
+        conversation
+      };
+    }
+
     const conversation = await chatwootProvider.createConversation({
       sessionId: session.sessionId,
       source: session.surface,
@@ -1995,6 +2043,9 @@ const server = createServer(async (request, response) => {
       });
       const ticket = createOrUpdateSupportTicket(session, supportResponse);
       const chatwoot = await createChatwootEscalation(session, supportResponse);
+      if (chatwoot.conversation) {
+        attachChatwootConversation(session, chatwoot.conversation);
+      }
       await saveChatSessions();
 
       writeJson(response, 200, {
@@ -2008,7 +2059,7 @@ const server = createServer(async (request, response) => {
           sources: supportResponse.sources,
           slackDelivery: supportResponse.slackDelivery,
           chatwoot,
-          ticket: ticket ? publicSupportTicket(ticket) : undefined
+          ticket: session.ticket ? publicSupportTicket(session.ticket) : ticket ? publicSupportTicket(ticket) : undefined
         }
       });
       return;

@@ -96,6 +96,10 @@ The current MVP already has:
 - restricted-claim guardrails
 - Slack webhook escalation
 - `/support-test` browser test page
+- `/chat-client` React chat test surface
+- local ticket queue for escalated sessions
+- real Chatwoot contact/conversation creation when Chatwoot credentials are configured
+- local ticket links back to the created Chatwoot conversation
 
 Slack escalation is an interim path. The Chatwoot-backed implementation should eventually replace or sit beside Slack escalation, depending on operations preference.
 
