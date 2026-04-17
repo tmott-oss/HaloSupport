@@ -176,7 +176,7 @@ export class ChatwootApiProvider implements ChatwootProvider {
   }
 
   private parseContact(response: ChatwootContactResponse, sessionId: string): ParsedChatwootContact {
-    const contact = Array.isArray(response.payload) ? response.payload[0] : response.payload ?? response;
+    const contact = this.unwrapContactResponse(response);
     if (!contact || typeof contact !== "object") {
       throw new Error("Chatwoot contact response did not include a contact.");
     }
@@ -189,6 +189,30 @@ export class ChatwootApiProvider implements ChatwootProvider {
       id,
       sourceId
     };
+  }
+
+  private unwrapContactResponse(response: ChatwootContactResponse): unknown {
+    if (Array.isArray(response.payload)) {
+      return response.payload[0];
+    }
+
+    if (response.payload && typeof response.payload === "object") {
+      const payload = response.payload as {
+        contact?: unknown;
+        id?: unknown;
+        contact_inboxes?: unknown;
+      };
+
+      if (payload.contact) {
+        return payload.contact;
+      }
+
+      if (payload.id || payload.contact_inboxes) {
+        return payload;
+      }
+    }
+
+    return response;
   }
 
   private readSourceId(contactInboxes: unknown) {
