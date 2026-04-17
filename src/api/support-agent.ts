@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -1830,7 +1830,7 @@ function countOccurrences(value: string, token: string) {
   return value.split(token).length - 1;
 }
 
-async function readJsonBody(request: IncomingMessage) {
+async function readRawBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let size = 0;
 
@@ -1843,8 +1843,15 @@ async function readJsonBody(request: IncomingMessage) {
     chunks.push(buffer);
   }
 
-  const rawBody = Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function parseJsonBody(rawBody: string) {
   return rawBody ? (JSON.parse(rawBody) as unknown) : {};
+}
+
+async function readJsonBody(request: IncomingMessage) {
+  return parseJsonBody(await readRawBody(request));
 }
 
 function writeJson(response: ServerResponse, statusCode: number, payload: unknown) {
@@ -1965,8 +1972,9 @@ function parseChatwootHumanReply(value: unknown) {
     getStringField(value, ["conversation_id"]) ??
     getStringField(value, ["conversation", "display_id"]) ??
     getStringField(value, ["message", "conversation_id"]);
+  const outgoingMessage = messageType === "outgoing" || messageType === "1";
 
-  if (!conversationId || !content?.trim() || messageType !== "outgoing" || privateMessage) {
+  if (!conversationId || !content?.trim() || !outgoingMessage || privateMessage) {
     return undefined;
   }
 
@@ -1977,17 +1985,36 @@ function parseChatwootHumanReply(value: unknown) {
   };
 }
 
-function verifyChatwootWebhookToken(request: IncomingMessage, requestUrl: URL) {
-  const expectedToken = process.env.CHATWOOT_WEBHOOK_TOKEN?.trim();
-  if (!expectedToken) {
+function secureCompare(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function verifyChatwootWebhookSignature(request: IncomingMessage, requestUrl: URL, rawBody: string) {
+  const webhookSecret = process.env.CHATWOOT_WEBHOOK_TOKEN?.trim();
+  if (!webhookSecret) {
     return true;
   }
 
-  const suppliedToken =
+  const signature = Array.isArray(request.headers["x-chatwoot-signature"])
+    ? request.headers["x-chatwoot-signature"][0]
+    : request.headers["x-chatwoot-signature"];
+  const timestamp = Array.isArray(request.headers["x-chatwoot-timestamp"])
+    ? request.headers["x-chatwoot-timestamp"][0]
+    : request.headers["x-chatwoot-timestamp"];
+  if (signature && timestamp) {
+    const expectedSignature = `sha256=${createHmac("sha256", webhookSecret)
+      .update(`${timestamp}.${rawBody}`)
+      .digest("hex")}`;
+    return secureCompare(expectedSignature, signature);
+  }
+
+  const legacyToken =
     request.headers["x-halosight-webhook-token"] ??
     request.headers["x-chatwoot-webhook-token"] ??
     requestUrl.searchParams.get("token");
-  return suppliedToken === expectedToken;
+  return legacyToken === webhookSecret;
 }
 
 async function serveChatClient(requestPath: string, response: ServerResponse, includeBody = true) {
@@ -2124,13 +2151,14 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && requestPath === "/chatwoot/webhook") {
-      if (!verifyChatwootWebhookToken(request, requestUrl)) {
-        writeJson(response, 401, { error: "Invalid Chatwoot webhook token." });
+      const rawBody = await readRawBody(request);
+      if (!verifyChatwootWebhookSignature(request, requestUrl, rawBody)) {
+        writeJson(response, 401, { error: "Invalid Chatwoot webhook signature." });
         return;
       }
 
       await loadStoredChatSessions();
-      const body = await readJsonBody(request);
+      const body = parseJsonBody(rawBody);
       const humanReply = parseChatwootHumanReply(body);
       if (!humanReply) {
         writeJson(response, 202, { status: "ignored" });

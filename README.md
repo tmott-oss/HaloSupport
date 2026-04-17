@@ -151,7 +151,7 @@ For human reply sync, configure Chatwoot to send message webhooks to:
 https://your-support-service.example.com/chatwoot/webhook
 ```
 
-If `CHATWOOT_WEBHOOK_TOKEN` is set, include the same value as either the `x-halosight-webhook-token` header, the `x-chatwoot-webhook-token` header, or a `?token=` query parameter. The backend records non-private Chatwoot `outgoing` messages as `human` transcript messages, and the React chat client polls `GET /chat/messages` after escalation so the user can see human replies.
+Set `CHATWOOT_WEBHOOK_TOKEN` to the secret Chatwoot shows when the webhook is created. Chatwoot signs webhooks with `X-Chatwoot-Signature` and `X-Chatwoot-Timestamp`; the backend verifies that signature before accepting the event. The backend records non-private Chatwoot outgoing messages as `human` transcript messages, and the React chat client polls `GET /chat/messages` after escalation so the user can see human replies.
 
 For production, Chatwoot should be treated as the support ticket source of truth unless engineering decides otherwise. The local ticket store is only MVP/debug metadata and should not become a parallel long-term ticketing system.
 
