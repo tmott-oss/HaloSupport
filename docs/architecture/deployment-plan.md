@@ -13,6 +13,7 @@ The deployment should prove the interactive flow:
 5. Slack receives the escalation.
 6. A support ticket is created.
 7. Support operator can inspect and update the ticket.
+8. A Chatwoot agent reply appears back in the Halosight chat client.
 
 ## Current Local Surfaces
 
@@ -95,6 +96,7 @@ CHATWOOT_BASE_URL=...
 CHATWOOT_ACCOUNT_ID=...
 CHATWOOT_INBOX_ID=...
 CHATWOOT_API_TOKEN=...
+CHATWOOT_WEBHOOK_TOKEN=...
 ```
 
 Current behavior:
@@ -102,6 +104,8 @@ Current behavior:
 - If Chatwoot variables are missing, the backend uses the mock Chatwoot provider.
 - If Chatwoot variables are present, escalation creates a real Chatwoot contact and conversation.
 - Real Chatwoot escalation was verified in Render staging on April 17, 2026.
+- Real Chatwoot human reply sync was verified in Render staging on April 17, 2026.
+- `CHATWOOT_WEBHOOK_TOKEN` should be set to the webhook secret from Chatwoot so signed webhook payloads can be verified.
 - If `SLACK_WEBHOOK_URL` is present and valid, escalation posts to Slack.
 - `/debug/config` verifies configuration without exposing secrets.
 
@@ -187,6 +191,7 @@ Expected:
 - local ticket created
 - real Chatwoot conversation created when Chatwoot credentials are configured
 - Chatwoot private note includes transcript and escalation context
+- public Chatwoot agent reply appears back in the chat client after a short polling delay
 
 4. Open:
 
@@ -227,9 +232,9 @@ Expected:
 
 - keep validating real Chatwoot contact and conversation creation in staging
 - keep confirming transcript and source context appear in Chatwoot
+- keep validating signed Chatwoot webhook delivery and human reply sync
 - choose whether Chatwoot becomes the source of truth for ticket status
 - map local ticket status to Chatwoot conversation status only if local tickets remain authoritative
-- add human reply synchronization path back to the Halosight chat client
 
 ### Phase 4: Website Embed
 
