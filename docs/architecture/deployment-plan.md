@@ -111,6 +111,8 @@ Current behavior:
 - `/debug/config` verifies configuration without exposing secrets.
 - If `DATABASE_URL` is present, chat sessions, transcripts, tickets, and Chatwoot conversation links persist in Postgres.
 - If `DATABASE_URL` is missing, the backend falls back to local JSON persistence.
+- Render staging was verified on April 18, 2026 with `persistence: postgres`.
+- A ticket created before a Render redeploy remained visible after the redeploy completed.
 
 ## Important Security Notes Before Sharing
 
@@ -145,6 +147,15 @@ This keeps the first durable persistence step small and preserves the current AP
 
 On Render, prefer the Postgres internal database URL when the database and web service are in the same account and region. Use the external URL only when connecting from outside Render.
 
+Render staging is currently using Postgres persistence. `/debug/config` should report:
+
+```json
+{
+  "persistence": "postgres",
+  "databaseConfigured": true
+}
+```
+
 When `DATABASE_URL` is not configured, the MVP stores sessions and tickets in:
 
 ```text
@@ -175,6 +186,7 @@ Expected:
 - Slack configured
 - Slack webhook shape valid
 - Chatwoot mode shows `mock` or `api`
+- session persistence shows `postgres` when Render Postgres is configured
 - chat client built
 
 2. Open:
