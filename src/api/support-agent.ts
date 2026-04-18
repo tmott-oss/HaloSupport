@@ -54,6 +54,7 @@ type SupportSurface = "public_website" | "authenticated_app" | "flutter_webview"
 type KnowledgeSet = "public_site" | "authenticated_app";
 type HumanSupportStatus = "ai_only" | "escalated";
 type SupportTicketStatus = "open" | "waiting_on_human" | "waiting_on_customer" | "resolved";
+type SupportLogLevel = "info" | "warn" | "error";
 
 loadLocalEnv();
 
@@ -1377,6 +1378,7 @@ function buildMockSlackNotification(message: string, reason: string, hits: Searc
 async function postSlackEscalation(notification: MockSlackNotification): Promise<SlackDelivery | undefined> {
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
   if (!webhookUrl) {
+    logSupportEvent("warn", "slack.not_configured");
     return undefined;
   }
 
@@ -1394,6 +1396,10 @@ async function postSlackEscalation(notification: MockSlackNotification): Promise
     const slackAcceptedMessage = responseBody.trim() === "ok";
 
     if (!response.ok || !slackAcceptedMessage) {
+      logSupportEvent("error", "slack.delivery_failed", {
+        status: response.status,
+        responseBodyPreview: responseBody.slice(0, 120)
+      });
       return {
         mode: "webhook",
         delivered: false,
@@ -1403,6 +1409,9 @@ async function postSlackEscalation(notification: MockSlackNotification): Promise
       };
     }
 
+    logSupportEvent("info", "slack.delivered", {
+      status: response.status
+    });
     return {
       mode: "webhook",
       delivered: true,
@@ -1410,6 +1419,9 @@ async function postSlackEscalation(notification: MockSlackNotification): Promise
       responseBody
     };
   } catch (error) {
+    logSupportEvent("error", "slack.delivery_error", {
+      error: error instanceof Error ? error.message : "Unknown Slack webhook error."
+    });
     return {
       mode: "webhook",
       delivered: false,
@@ -1473,6 +1485,11 @@ function createOrUpdateSupportTicket(session: ChatSession, supportResponse: Supp
       createdAt: now,
       updatedAt: now
     };
+    logSupportEvent("info", "ticket.created", {
+      sessionId: session.sessionId,
+      ticketId: session.ticket.ticketId,
+      escalationReason: session.ticket.escalationReason
+    });
     return session.ticket;
   }
 
@@ -1480,6 +1497,11 @@ function createOrUpdateSupportTicket(session: ChatSession, supportResponse: Supp
   session.ticket.escalationReason = supportResponse.escalationReason ?? session.ticket.escalationReason;
   session.ticket.sourcePaths = Array.from(new Set([...session.ticket.sourcePaths, ...sourcePaths]));
   session.ticket.updatedAt = now;
+  logSupportEvent("info", "ticket.updated", {
+    sessionId: session.sessionId,
+    ticketId: session.ticket.ticketId,
+    status: session.ticket.status
+  });
   return session.ticket;
 }
 
@@ -1504,7 +1526,10 @@ async function loadStoredChatSessions() {
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn("Unable to load stored chat sessions:", error);
+        logSupportEvent("error", "sessions.load_failed", {
+          persistence: "local_json",
+          error: error instanceof Error ? error.message : "Unknown session load error."
+        });
       }
     }
   })();
@@ -1581,6 +1606,10 @@ async function saveChatSessionsToPostgres() {
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
+    logSupportEvent("error", "sessions.save_failed", {
+      persistence: "postgres",
+      error: error instanceof Error ? error.message : "Unknown Postgres save error."
+    });
     throw error;
   } finally {
     client.release();
@@ -1768,6 +1797,11 @@ function updateSupportTicketStatus(ticketId: string, status: SupportTicketStatus
   session.ticket.status = status;
   session.ticket.updatedAt = new Date().toISOString();
   session.updatedAt = session.ticket.updatedAt;
+  logSupportEvent("info", "ticket.status_updated", {
+    sessionId: session.sessionId,
+    ticketId,
+    status
+  });
   return {
     ...publicSupportTicket(session.ticket),
     session: publicSession(session),
@@ -1806,6 +1840,11 @@ function appendHumanSupportMessage(session: ChatSession, content: string, create
     session.ticket.status = session.ticket.status === "resolved" ? "open" : session.ticket.status;
     session.ticket.updatedAt = createdAt;
   }
+  logSupportEvent("info", "chatwoot.human_reply_recorded", {
+    sessionId: session.sessionId,
+    ticketId: session.ticket?.ticketId,
+    chatwootConversationId: session.ticket?.chatwootConversationId
+  });
   return message;
 }
 
@@ -1832,6 +1871,12 @@ async function createChatwootEscalation(
     if (session.ticket?.chatwootConversationId) {
       const conversation = await chatwootProvider.getConversation(session.ticket.chatwootConversationId);
       attachChatwootConversation(session, conversation);
+      logSupportEvent("info", "chatwoot.conversation_reused", {
+        sessionId: session.sessionId,
+        ticketId: session.ticket.ticketId,
+        chatwootConversationId: conversation.conversationId,
+        status: conversation.status
+      });
       return {
         status: "created",
         conversation
@@ -1861,11 +1906,23 @@ async function createChatwootEscalation(
       }
     });
 
+    attachChatwootConversation(session, conversation);
+    logSupportEvent("info", "chatwoot.conversation_created", {
+      sessionId: session.sessionId,
+      ticketId: session.ticket?.ticketId,
+      chatwootConversationId: conversation.conversationId,
+      status: conversation.status
+    });
     return {
       status: "created",
       conversation
     };
   } catch (error) {
+    logSupportEvent("error", "chatwoot.escalation_failed", {
+      sessionId: session.sessionId,
+      ticketId: session.ticket?.ticketId,
+      error: error instanceof Error ? error.message : "Unknown Chatwoot escalation error."
+    });
     return {
       status: "failed",
       error: error instanceof Error ? error.message : "Unknown Chatwoot escalation error."
@@ -1917,6 +1974,29 @@ function parseAllowedOrigins(value: string | undefined) {
       .map((origin) => origin.trim().replace(/\/$/, ""))
       .filter((origin) => origin.length > 0)
   );
+}
+
+function logSupportEvent(level: SupportLogLevel, event: string, fields: Record<string, unknown> = {}) {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    component: "halosight_support_agent",
+    level,
+    event,
+    ...fields
+  };
+
+  const serialized = JSON.stringify(payload);
+  if (level === "error") {
+    console.error(serialized);
+    return;
+  }
+
+  if (level === "warn") {
+    console.warn(serialized);
+    return;
+  }
+
+  console.log(serialized);
 }
 
 async function readRawBody(request: IncomingMessage) {
@@ -2233,6 +2313,11 @@ const server = createServer(async (request, response) => {
     applyCorsHeaders(request, response);
 
     if (!isOriginAllowed(request)) {
+      logSupportEvent("warn", "origin.blocked", {
+        origin: getRequestOrigin(request),
+        path: requestPath,
+        method: request.method
+      });
       writeJson(response, 403, { error: "Origin is not allowed." });
       return;
     }
@@ -2303,6 +2388,7 @@ const server = createServer(async (request, response) => {
     if (request.method === "POST" && requestPath === "/chatwoot/webhook") {
       const rawBody = await readRawBody(request);
       if (!verifyChatwootWebhookSignature(request, requestUrl, rawBody)) {
+        logSupportEvent("warn", "chatwoot.webhook_signature_invalid");
         writeJson(response, 401, { error: "Invalid Chatwoot webhook signature." });
         return;
       }
@@ -2311,12 +2397,18 @@ const server = createServer(async (request, response) => {
       const body = parseJsonBody(rawBody);
       const humanReply = parseChatwootHumanReply(body);
       if (!humanReply) {
+        logSupportEvent("info", "chatwoot.webhook_ignored", {
+          reason: "not_public_outgoing_message"
+        });
         writeJson(response, 202, { status: "ignored" });
         return;
       }
 
       const session = findSessionByChatwootConversationId(humanReply.conversationId);
       if (!session) {
+        logSupportEvent("warn", "chatwoot.webhook_session_not_found", {
+          chatwootConversationId: humanReply.conversationId
+        });
         writeJson(response, 202, {
           status: "ignored",
           reason: "No local session is linked to this Chatwoot conversation.",
@@ -2328,6 +2420,12 @@ const server = createServer(async (request, response) => {
       const message = appendHumanSupportMessage(session, humanReply.content, humanReply.createdAt);
       if (message) {
         await saveChatSessions();
+      } else {
+        logSupportEvent("info", "chatwoot.human_reply_duplicate", {
+          sessionId: session.sessionId,
+          ticketId: session.ticket?.ticketId,
+          chatwootConversationId: humanReply.conversationId
+        });
       }
 
       writeJson(response, 200, {
@@ -2365,6 +2463,10 @@ const server = createServer(async (request, response) => {
 
       const ticket = updateSupportTicketStatus(ticketId, status);
       if (!ticket) {
+        logSupportEvent("warn", "ticket.status_update_not_found", {
+          ticketId,
+          status
+        });
         writeJson(response, 404, { error: "ticketId was not found.", ticketId });
         return;
       }
@@ -2420,6 +2522,15 @@ const server = createServer(async (request, response) => {
         attachChatwootConversation(session, chatwoot.conversation);
       }
       await saveChatSessions();
+      logSupportEvent("info", "chat.message_processed", {
+        sessionId: session.sessionId,
+        ticketId: session.ticket?.ticketId,
+        escalated: supportResponse.escalated,
+        confidence: supportResponse.confidence,
+        slackDelivered: supportResponse.slackDelivery?.delivered,
+        chatwootStatus: chatwoot.status,
+        chatwootConversationId: chatwoot.conversation?.conversationId
+      });
 
       writeJson(response, 200, {
         session: publicSession(session),
@@ -2453,11 +2564,17 @@ const server = createServer(async (request, response) => {
 
     writeJson(response, 404, { error: "Use POST /support or the /chat/session and /chat/message endpoints." });
   } catch (error) {
+    logSupportEvent("error", "request.unhandled_error", {
+      error: error instanceof Error ? error.message : "Unknown error."
+    });
     writeJson(response, 500, { error: error instanceof Error ? error.message : "Unknown error." });
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`Halosight support agent API listening on http://localhost:${PORT}`);
-  console.log("POST /support with { \"message\": \"...\" }");
+  logSupportEvent("info", "server.started", {
+    port: PORT,
+    persistence: databasePool ? "postgres" : "local_json",
+    allowedOriginsConfigured: supportAllowedOrigins.size > 0
+  });
 });
