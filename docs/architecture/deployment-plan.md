@@ -242,6 +242,34 @@ Expected:
 
 - updated ticket status remains visible if persistence is available
 
+## Render Log Events
+
+The support API emits structured JSON logs to stdout/stderr. Render captures these logs in the service log stream.
+
+Useful event names:
+
+- `server.started`
+- `chat.message_processed`
+- `ticket.created`
+- `ticket.updated`
+- `ticket.status_updated`
+- `slack.delivered`
+- `slack.delivery_failed`
+- `slack.delivery_error`
+- `chatwoot.conversation_created`
+- `chatwoot.conversation_reused`
+- `chatwoot.escalation_failed`
+- `chatwoot.webhook_signature_invalid`
+- `chatwoot.webhook_ignored`
+- `chatwoot.webhook_session_not_found`
+- `chatwoot.human_reply_recorded`
+- `origin.blocked`
+- `sessions.load_failed`
+- `sessions.save_failed`
+- `request.unhandled_error`
+
+Logs include operational IDs such as `sessionId`, `ticketId`, and `chatwootConversationId` where available. Logs must not include Slack webhooks, Chatwoot API tokens, database URLs, support passwords, or full customer secrets.
+
 ## Suggested Deployment Phases
 
 ### Phase 1: CTO Demo Deployment
