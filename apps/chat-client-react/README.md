@@ -66,3 +66,28 @@ The component expects the wrapper service to expose:
 When served from the backend at `/chat-client`, the client calls the API on the same origin. This lets the same built bundle work locally and on staging hosts such as Render.
 
 The client stores the active session id in `localStorage` so browser refreshes can continue the same local test session.
+
+## First Website Embed
+
+For the first Halosight.com test, use the backend-served page instead of a script widget.
+
+Link option:
+
+```html
+<a href="https://halosight-support-mvp.onrender.com/chat-client" target="_blank" rel="noopener">
+  Contact support
+</a>
+```
+
+Iframe option:
+
+```html
+<iframe
+  src="https://halosight-support-mvp.onrender.com/chat-client"
+  title="Halosight support"
+  style="width: 100%; min-height: 720px; border: 0;"
+  loading="lazy"
+></iframe>
+```
+
+Before embedding, make sure the backend has `SUPPORT_ALLOWED_ORIGINS` configured for the Halosight-owned domains that will host the link or iframe.

@@ -16,6 +16,47 @@ https://halosight-support-mvp.onrender.com/chat-client
 
 For the first website test, Halosight.com can link to this page or embed it in a controlled page/iframe while the team validates the experience.
 
+## Recommended First Website Test
+
+Use one of these two options first.
+
+### Option A: Link
+
+Add a normal support link from Halosight.com:
+
+```html
+<a href="https://halosight-support-mvp.onrender.com/chat-client" target="_blank" rel="noopener">
+  Contact support
+</a>
+```
+
+Use this when the goal is the safest first public test. It opens the support chat in its own page and keeps Halosight.com layout changes minimal.
+
+### Option B: Iframe
+
+Embed the hosted chat client in a dedicated support page:
+
+```html
+<iframe
+  src="https://halosight-support-mvp.onrender.com/chat-client"
+  title="Halosight support"
+  style="width: 100%; min-height: 720px; border: 0;"
+  loading="lazy"
+></iframe>
+```
+
+Use this when the goal is to keep the visitor on Halosight.com while still avoiding a custom widget integration.
+
+Recommended first route:
+
+```text
+https://www.halosight.com/support
+```
+
+The website team can place the iframe on that page and verify the full support flow before a site-wide floating support tab is added.
+
+## Future Script Widget
+
 A later pass can package the React client as a script-based widget, for example:
 
 ```html
@@ -23,6 +64,8 @@ A later pass can package the React client as a script-based widget, for example:
 ```
 
 That packaging step is intentionally separate from this hardening step.
+
+Do not use a script widget for the first website test. The hosted link or iframe path is faster to validate and easier to roll back.
 
 ## Allowed Origins
 
@@ -86,6 +129,17 @@ After setting `SUPPORT_ALLOWED_ORIGINS`, verify:
 4. A restricted question still escalates.
 5. Chatwoot reply sync still works.
 6. Requests from an unlisted browser origin are blocked.
+
+For the first Halosight.com page test, verify:
+
+1. The support page loads the iframe or link correctly.
+2. A normal support question receives a grounded answer.
+3. A restricted question escalates.
+4. Slack receives the escalation.
+5. Chatwoot receives the conversation.
+6. A public Chatwoot reply appears back in the support chat.
+7. The ticket appears in `/tickets-view`.
+8. The ticket persists after Render redeploy.
 
 ## Remaining Production Work
 
