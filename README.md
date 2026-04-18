@@ -79,6 +79,14 @@ curl http://localhost:3000/debug/config
 
 This reports whether Slack and Chatwoot are configured without exposing secret values.
 
+For website embedding, set `SUPPORT_ALLOWED_ORIGINS` in deployed environments:
+
+```text
+SUPPORT_ALLOWED_ORIGINS=https://halosight.com,https://www.halosight.com,https://halosight-support-mvp.onrender.com
+```
+
+When this value is set, browser requests with an `Origin` header are allowed only from those origins or from the service's own origin. Server-to-server requests without a browser origin, such as Chatwoot webhooks, still work. When the value is missing, the backend stays permissive for local development.
+
 Set `SUPPORT_OPS_USERNAME` and `SUPPORT_OPS_PASSWORD` to protect local support operations routes with Basic Auth. When those values are set, `/tickets-view`, `/tickets`, `/tickets/:ticketId`, and `/debug/config` require credentials. Chat and `/health` remain public.
 
 Local chat sessions are stored in `.halosight-runtime/chat-sessions.json` so test sessions survive backend restarts. This runtime folder is ignored by Git.

@@ -88,6 +88,7 @@ Minimum staging variables:
 PORT=3001
 SLACK_WEBHOOK_URL=...
 DATABASE_URL=...
+SUPPORT_ALLOWED_ORIGINS=https://halosight.com,https://www.halosight.com,https://halosight-support-mvp.onrender.com
 ```
 
 Optional Chatwoot variables:
@@ -111,6 +112,7 @@ Current behavior:
 - `/debug/config` verifies configuration without exposing secrets.
 - If `DATABASE_URL` is present, chat sessions, transcripts, tickets, and Chatwoot conversation links persist in Postgres.
 - If `DATABASE_URL` is missing, the backend falls back to local JSON persistence.
+- If `SUPPORT_ALLOWED_ORIGINS` is present, browser requests from unlisted origins are blocked.
 - Render staging was verified on April 18, 2026 with `persistence: postgres`.
 - A ticket created before a Render redeploy remained visible after the redeploy completed.
 
@@ -123,7 +125,7 @@ Do not expose the current service broadly on the public internet without these c
 - restrict `/tickets/:ticketId`
 - restrict `PATCH /tickets/:ticketId`
 - consider restricting `/debug/config`
-- add CORS/origin controls before embedding on a real public site
+- keep CORS/origin controls configured before embedding on a real public site
 - store secrets in the deployment platform, not in `.env`
 
 For a CTO demo, acceptable short-term options are:
@@ -187,6 +189,7 @@ Expected:
 - Slack webhook shape valid
 - Chatwoot mode shows `mock` or `api`
 - session persistence shows `postgres` when Render Postgres is configured
+- allowed origins are configured for website embedding
 - chat client built
 
 2. Open:
