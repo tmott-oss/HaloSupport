@@ -114,6 +114,13 @@ When `DATABASE_URL` is configured, sessions are persisted in Postgres instead. T
 
 The local JSON file remains the fallback for development. It is useful because local conversations and tickets survive backend restarts during testing, but it should not be used for production traffic.
 
+Verified in Render staging on April 18, 2026:
+
+- `/debug/config` reported `persistence: postgres`
+- `/debug/config` reported `databaseConfigured: true`
+- an escalated ticket appeared in `/tickets-view`
+- the same ticket survived a Render redeploy/restart
+
 ### Local Ticket System
 
 Escalated chat sessions now create or reuse a local support ticket.
@@ -229,9 +236,9 @@ The following are not production-ready yet:
 - production knowledge retrieval
 - website embed packaging
 - security controls around public API exposure
-- durable production persistence
+- production-grade persistence operations, such as backups, retention, migrations, and monitoring
 
-Session persistence and ticket lifecycle now exist locally, in staging, and through optional Postgres durability. Chatwoot conversation creation and human reply sync are real when credentials and webhooks are configured. The current Postgres store is an MVP durability layer, not the final long-term analytics or reporting model.
+Session persistence and ticket lifecycle now exist locally, in staging, and through verified Postgres durability. Chatwoot conversation creation and human reply sync are real when credentials and webhooks are configured. The current Postgres store is an MVP durability layer, not the final long-term analytics or reporting model.
 
 ## Current Local Test Flow
 
@@ -344,7 +351,7 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 
 - Deploy the backend as a small service.
 - Store secrets in the deployment platform, not in local files.
-- Configure `DATABASE_URL` for durable persistence.
+- Keep `DATABASE_URL` configured for durable persistence.
 - Add logging for escalation outcomes.
 - Add monitoring for Slack and Chatwoot delivery failures.
 - Protect ticket operations behind authentication before any public deployment.
