@@ -119,6 +119,7 @@ export function SupportChat({ apiBaseUrl, context }: SupportChatProps) {
           escalated: response.reply.escalated
         }
       ]);
+      setInput("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The support request could not be sent.");
     } finally {
