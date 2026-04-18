@@ -97,6 +97,7 @@ const chatClientDistDir = path.join(process.cwd(), "apps", "chat-client-react", 
 const runtimeDataDir = path.join(process.cwd(), ".halosight-runtime");
 const chatSessionStorePath = path.join(runtimeDataDir, "chat-sessions.json");
 const databaseUrl = process.env.DATABASE_URL?.trim();
+const supportAllowedOrigins = parseAllowedOrigins(process.env.SUPPORT_ALLOWED_ORIGINS);
 const supportedKnowledgeExtensions = new Set([".md", ".json", ".yaml", ".yml"]);
 const stopWords = new Set([
   "about",
@@ -1909,6 +1910,15 @@ function countOccurrences(value: string, token: string) {
   return value.split(token).length - 1;
 }
 
+function parseAllowedOrigins(value: string | undefined) {
+  return new Set(
+    (value ?? "")
+      .split(",")
+      .map((origin) => origin.trim().replace(/\/$/, ""))
+      .filter((origin) => origin.length > 0)
+  );
+}
+
 async function readRawBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -1973,6 +1983,10 @@ function buildDebugConfig() {
       containsWhitespace: /\s/.test(slackWebhookUrl),
       containsDocsHost: slackWebhookUrl.includes("docs.slack.dev") || slackWebhookUrl.includes("api.slack.com"),
       looksLikeWebhook: /^https:\/\/hooks\.slack\.com\/services\/[^/\s]+\/[^/\s]+\/[^/\s]+$/.test(slackWebhookUrl)
+    },
+    embed: {
+      allowedOriginsConfigured: supportAllowedOrigins.size > 0,
+      allowedOrigins: Array.from(supportAllowedOrigins)
     },
     chatwoot: {
       mode: hasChatwootCredentials(chatwootConfig) ? "api" : "mock",
@@ -2168,10 +2182,66 @@ function writeAuthRequired(response: ServerResponse) {
   response.end(JSON.stringify({ error: "Authentication required." }, null, 2));
 }
 
+function getHeaderValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getRequestOrigin(request: IncomingMessage) {
+  return getHeaderValue(request.headers.origin)?.replace(/\/$/, "");
+}
+
+function getServiceOrigin(request: IncomingMessage) {
+  const host = request.headers.host;
+  if (!host) {
+    return undefined;
+  }
+
+  const forwardedProto = getHeaderValue(request.headers["x-forwarded-proto"]);
+  const protocol = forwardedProto ?? (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+  return `${protocol}://${host}`;
+}
+
+function isOriginAllowed(request: IncomingMessage) {
+  const origin = getRequestOrigin(request);
+  if (!origin) {
+    return true;
+  }
+
+  if (supportAllowedOrigins.size === 0) {
+    return true;
+  }
+
+  return supportAllowedOrigins.has(origin) || origin === getServiceOrigin(request);
+}
+
+function applyCorsHeaders(request: IncomingMessage, response: ServerResponse) {
+  const origin = getRequestOrigin(request);
+  if (!origin || !isOriginAllowed(request)) {
+    return;
+  }
+
+  response.setHeader("Access-Control-Allow-Origin", origin);
+  response.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Halosight-Webhook-Token, X-Chatwoot-Webhook-Token, X-Chatwoot-Signature, X-Chatwoot-Timestamp");
+  response.setHeader("Vary", "Origin");
+}
+
 const server = createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
     const requestPath = requestUrl.pathname;
+    applyCorsHeaders(request, response);
+
+    if (!isOriginAllowed(request)) {
+      writeJson(response, 403, { error: "Origin is not allowed." });
+      return;
+    }
+
+    if (request.method === "OPTIONS") {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
 
     if (isProtectedOpsRoute(requestPath) && !requireOpsAuth(request, response)) {
       return;

@@ -175,7 +175,7 @@ The backend exposes:
 http://localhost:3001/debug/config
 ```
 
-This reports safe configuration state without exposing secrets. It includes Slack webhook shape checks, Chatwoot mode, session count, ticket count, and local store status.
+This reports safe configuration state without exposing secrets. It includes Slack webhook shape checks, Chatwoot mode, allowed-origin status, session count, ticket count, and persistence status.
 
 ### React Chat Client
 
@@ -345,7 +345,7 @@ For an interactive remote demo, the backend and chat/ticket pages need to be dep
 - Package the React client as an embeddable support widget.
 - Add a website-safe initialization script.
 - Restrict public-site knowledge to approved public support content.
-- Add CORS and origin controls before external deployment.
+- Keep `SUPPORT_ALLOWED_ORIGINS` configured for Halosight-owned domains before external deployment.
 
 ### Milestone 5: Production Deployment
 
