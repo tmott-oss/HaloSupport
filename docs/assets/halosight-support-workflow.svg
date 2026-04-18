@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Halosight AI Support Workflow</title>
+  <desc id="desc">Workflow diagram showing website chat, support backend, knowledge guardrails, Slack, Chatwoot, Postgres, and human reply sync.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f8f3; }
+      .ink { fill: #1d201f; }
+      .muted { fill: #5f6964; }
+      .line { stroke: #b8c3bd; stroke-width: 3; fill: none; }
+      .arrow { stroke: #0f766e; stroke-width: 4; fill: none; marker-end: url(#arrowhead); }
+      .return { stroke: #2563eb; stroke-width: 4; fill: none; marker-end: url(#bluearrow); stroke-dasharray: 10 8; }
+      .box { fill: #ffffff; stroke: #cbd5cf; stroke-width: 2; rx: 8; }
+      .box-main { fill: #ffffff; stroke: #0f766e; stroke-width: 3; rx: 8; }
+      .box-warn { fill: #fff7ed; stroke: #d97706; stroke-width: 3; rx: 8; }
+      .box-blue { fill: #eff6ff; stroke: #2563eb; stroke-width: 3; rx: 8; }
+      .box-dark { fill: #20302b; stroke: #20302b; stroke-width: 3; rx: 8; }
+      .label { font-family: Inter, Arial, sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0; fill: #1d201f; }
+      .small { font-family: Inter, Arial, sans-serif; font-size: 18px; font-weight: 500; letter-spacing: 0; fill: #5f6964; }
+      .tiny { font-family: Inter, Arial, sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0; fill: #5f6964; text-transform: uppercase; }
+      .white { fill: #ffffff; }
+      .badge { fill: #0f766e; rx: 8; }
+    </style>
+    <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#0f766e"/>
+    </marker>
+    <marker id="bluearrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1440" height="900"/>
+
+  <text class="ink" x="80" y="84" style="font-family: Inter, Arial, sans-serif; font-size: 44px; font-weight: 900;">Halosight AI Support Workflow</text>
+  <text class="muted" x="80" y="124" style="font-family: Inter, Arial, sans-serif; font-size: 21px;">AI answers what it can prove. Risky or uncertain questions move to humans through Slack and Chatwoot.</text>
+
+  <rect class="box" x="80" y="184" width="260" height="132" rx="8"/>
+  <text class="tiny" x="112" y="222">Website</text>
+  <text class="label" x="112" y="260">Support Chat</text>
+  <text class="small" x="112" y="292">Visitor asks a question</text>
+
+  <rect class="box-main" x="420" y="170" width="310" height="160" rx="8"/>
+  <text class="tiny" x="452" y="208">Render Backend</text>
+  <text class="label" x="452" y="246">Support Agent</text>
+  <text class="small" x="452" y="278">Session API</text>
+  <text class="small" x="452" y="305">Knowledge search</text>
+
+  <rect class="box" x="810" y="184" width="270" height="132" rx="8"/>
+  <text class="tiny" x="842" y="222">Approved Sources</text>
+  <text class="label" x="842" y="260">Knowledge Base</text>
+  <text class="small" x="842" y="292">Grounded answers only</text>
+
+  <rect class="box-warn" x="420" y="420" width="310" height="150" rx="8"/>
+  <text class="tiny" x="452" y="458">Guardrails</text>
+  <text class="label" x="452" y="496">Escalation Rules</text>
+  <text class="small" x="452" y="528">Low confidence</text>
+  <text class="small" x="452" y="552">SOC 2, ROI, security claims</text>
+
+  <rect class="box" x="80" y="436" width="260" height="118" rx="8"/>
+  <text class="tiny" x="112" y="474">Safe Path</text>
+  <text class="label" x="112" y="512">AI Answer</text>
+  <text class="small" x="112" y="540">Shown in chat</text>
+
+  <rect class="box" x="810" y="420" width="270" height="150" rx="8"/>
+  <text class="tiny" x="842" y="458">Internal Alert</text>
+  <text class="label" x="842" y="496">Slack</text>
+  <text class="small" x="842" y="528">Escalation notice</text>
+  <text class="small" x="842" y="552">Team visibility</text>
+
+  <rect class="box-blue" x="1140" y="420" width="240" height="150" rx="8"/>
+  <text class="tiny" x="1172" y="458">Human Support</text>
+  <text class="label" x="1172" y="496">Chatwoot</text>
+  <text class="small" x="1172" y="528">Conversation</text>
+  <text class="small" x="1172" y="552">Agent reply</text>
+
+  <rect class="box-dark" x="810" y="665" width="270" height="132" rx="8"/>
+  <text class="tiny white" x="842" y="703">Durable Store</text>
+  <text class="label white" x="842" y="741">Postgres</text>
+  <text class="small white" x="842" y="773">Sessions, tickets, transcript</text>
+
+  <rect class="box" x="1140" y="665" width="240" height="132" rx="8"/>
+  <text class="tiny" x="1172" y="703">Ops View</text>
+  <text class="label" x="1172" y="741">Tickets</text>
+  <text class="small" x="1172" y="773">Open in Chatwoot</text>
+
+  <path class="arrow" d="M340 250 L410 250"/>
+  <path class="arrow" d="M730 250 L800 250"/>
+  <path class="arrow" d="M575 330 L575 410"/>
+  <path class="arrow" d="M420 500 L350 500"/>
+  <path class="arrow" d="M730 495 L800 495"/>
+  <path class="arrow" d="M1080 495 L1130 495"/>
+  <path class="arrow" d="M575 570 C575 690 690 731 800 731"/>
+  <path class="arrow" d="M1080 731 L1130 731"/>
+  <path class="return" d="M1260 420 C1260 340 1180 330 1060 330 C850 330 650 365 575 410"/>
+  <path class="return" d="M1140 510 C1030 615 760 635 340 500"/>
+
+  <rect class="badge" x="92" y="650" width="580" height="72" rx="8"/>
+  <text class="white" x="124" y="695" style="font-family: Inter, Arial, sans-serif; font-size: 24px; font-weight: 900;">Verified MVP loop:</text>
+  <text class="white" x="345" y="695" style="font-family: Inter, Arial, sans-serif; font-size: 22px; font-weight: 500;">chat -> AI -> escalation -> human reply -> chat</text>
+
+  <text class="small" x="80" y="842">Current staging: Render backend, Postgres persistence, Slack alerts, Chatwoot handoff, signed webhook reply sync, allowed origins for Halosight domains.</text>
+</svg>
